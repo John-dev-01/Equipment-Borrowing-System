@@ -3,6 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const { page } = require('./middleware/views');
 const app = express();
+app.set('trust proxy', 1);
 const sessionSecret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-only-change-me');
 if (!sessionSecret) throw new Error('SESSION_SECRET must be set in production.');
 app.locals.page = page;
