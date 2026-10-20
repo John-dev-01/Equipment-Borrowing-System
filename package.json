@@ -1,0 +1,18 @@
+{
+  "name": "equipment-borrowing",
+  "version": "1.0.0",
+  "description": "Campus equipment borrowing system (Node.js + Express + SQLite)",
+  "main": "express-server.js",
+  "scripts": {
+    "start": "node express-server.js",
+    "dev": "node --watch express-server.js",
+    "raw": "node raw-server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "multer": "^2.4.0"
+  }
+}
