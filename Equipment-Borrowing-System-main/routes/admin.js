@@ -135,14 +135,13 @@ router.get('/admin/equipment', (req, res) => {
   </div>
 </article>`).join('');
   const body = `<div class="admin-stock-heading"><div><span class="catalog-kicker">CSPC / RESOURCE LIBRARY</span><h1>Manage stock</h1></div><span class="catalog-count">${rows.length} ${rows.length === 1 ? 'item' : 'items'}</span></div>
-<section><h2>Categories</h2><form method="post" action="/admin/categories" class="inline">
-<input name="name" placeholder="New category name" required maxlength="80"><button>Add category</button></form>
-${categories.length ? `<ul class="category-chips" aria-label="Existing categories">${categories.map(c => `<li>${esc(c.name)}</li>`).join('')}</ul>` : '<p class="muted">Add a category before adding an item.</p>'}</section>
 <section><h2>Add item</h2><div class="card">${equipForm({}, '/admin/equipment', 'Add item', categories)}</div></section>
 <div class="admin-items-toolbar"><h2>Items</h2>${rows.length ? '<button type="submit" form="bulk-equipment-form">Save changes</button>' : ''}</div>
 ${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equipment/bulk" enctype="multipart/form-data"><section class="admin-equipment-grid" aria-label="Edit equipment">${cards}</section></form>` : '<p class="muted">No equipment matches these filters.</p>'}`;
   res.send(req.app.locals.page(req, 'Manage stock', body, { sidebarControls: adminFilters(categories, req.query) }));
 });
+
+// hello world
 
 function validImageUrl(imageUrl) {
   if (!imageUrl) return true;
