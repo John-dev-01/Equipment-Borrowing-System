@@ -15,13 +15,7 @@ const flash = (req, type, msg) => (req.session.flash = { type, msg });
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'equipment');
 fs.mkdirSync(uploadDir, { recursive: true });
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadDir,
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\/(jpeg|png|gif|webp|svg\+xml)$/i.test(file.mimetype)),
 });
@@ -151,11 +145,13 @@ ${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equ
 });
 
 function validImageUrl(imageUrl) {
-  return !imageUrl || (imageUrl.length <= 2048 && ((imageUrl.startsWith('/') && !imageUrl.startsWith('//')) || /^https?:\/\//i.test(imageUrl)));
+  if (!imageUrl) return true;
+  if (/^data:image\/(jpeg|png|gif|webp|svg\+xml);base64,/i.test(imageUrl)) return imageUrl.length <= 8 * 1024 * 1024;
+  return imageUrl.length <= 2048 && ((imageUrl.startsWith('/') && !imageUrl.startsWith('//')) || /^https?:\/\//i.test(imageUrl));
 }
 function clean(b, file, existingImage = '') {
   const q = Number(b.quantity);
-  const imageUrl = file ? `/uploads/equipment/${file.filename}` : (typeof b.image_url === 'string' ? b.image_url.trim() : existingImage);
+  const imageUrl = file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : (typeof b.image_url === 'string' ? b.image_url.trim() : existingImage);
   if (typeof b.name !== 'string' || !b.name.trim() ||
       typeof b.category !== 'string' || !db.prepare('SELECT 1 FROM categories WHERE name = ?').get(b.category.trim()) ||
       !Number.isInteger(q) || q < 0 || !validImageUrl(imageUrl)) return null;
