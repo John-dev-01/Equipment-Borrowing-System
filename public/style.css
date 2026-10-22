@@ -1604,3 +1604,13 @@ html[data-sidebar="hidden"] .admin-equipment-grid {
   .admin-equipment-grid,
   html[data-sidebar="hidden"] .admin-equipment-grid { grid-template-columns: 1fr; }
 }
+
+/* No glow on the name/email text inside the account popup. */
+.account-popover .account-menu-name,
+.account-popover > small,
+.account-popover:hover .account-menu-name,
+.account-popover:hover > small,
+:root[data-theme="light"] .account-popover:hover .account-menu-name,
+:root[data-theme="light"] .account-popover:hover > small {
+  text-shadow: none !important;
+}
