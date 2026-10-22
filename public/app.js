@@ -8,12 +8,53 @@
   document.body.appendChild(fixedCursor);
   root.dataset.customCursor = 'active';
 
+  // Flip the cursor color depending on the surface under it.
+  let lastX = -1, lastY = -1, checkQueued = false;
+  const surfaceIsLight = (x, y) => {
+    let el = document.elementFromPoint(x, y);
+    while (el) {
+      const m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+      if (m && m.length >= 3) {
+        const [r, g, b] = m.map(Number);
+        const a = m.length > 3 ? m[3] : 1;
+        if (a > 0.5) return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.6;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  };
+  const updateCursorContrast = () => {
+    checkQueued = false;
+    if (lastX < 0) return;
+    const light = surfaceIsLight(lastX, lastY);
+    fixedCursor.classList.toggle('on-light', light);
+    fixedCursor.classList.toggle('on-dark', !light);
+    if (light) {
+      fixedCursor.style.background = '#111';
+      fixedCursor.style.boxShadow = '0 0 5px 2px rgba(0,0,0,.88), 0 0 13px 6px rgba(0,0,0,.44), 0 0 25px 11px rgba(0,0,0,.2)';
+    } else {
+      fixedCursor.style.background = '#fff';
+      fixedCursor.style.boxShadow = '0 0 5px 2px rgba(255,255,255,.95), 0 0 13px 6px rgba(255,255,255,.58), 0 0 25px 11px rgba(255,255,255,.28)';
+    }
+  };
+  const queueContrastCheck = () => {
+    if (checkQueued) return;
+    checkQueued = true;
+    requestAnimationFrame(updateCursorContrast);
+  };
+
   const moveFixedCursor = event => {
     if (event.pointerType === 'touch') return;
-    fixedCursor.style.left = `${event.clientX}px`;
-    fixedCursor.style.top = `${event.clientY}px`;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    fixedCursor.style.left = `${lastX}px`;
+    fixedCursor.style.top = `${lastY}px`;
     fixedCursor.classList.add('is-visible');
+    queueContrastCheck();
   };
+  document.addEventListener('transitionend', queueContrastCheck, true);
+  document.addEventListener('animationend', queueContrastCheck, true);
+  window.addEventListener('scroll', queueContrastCheck, { passive: true, capture: true });
   document.addEventListener('pointermove', moveFixedCursor, { passive: true });
   document.addEventListener('pointerleave', () => fixedCursor.classList.remove('is-visible'));
   window.addEventListener('blur', () => fixedCursor.classList.remove('is-visible'));
