@@ -76,7 +76,7 @@ router.post('/register', (req, res) => {
   if (password.length < 8) return fail('Password must be at least 8 characters.');
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return fail('That CSPC email is already registered.');
   db.prepare('INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,?)').run(name, email, bcrypt.hashSync(password, 12), 'borrower');
-  db.prepare('INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,?)').run(name, email, bcrypt.hashSync(password, 12), 'borrower');
+  req.session.flash = { type: 'ok', msg: 'Account created. Sign in with your CSPC email.' };
   res.redirect('/login');
 });
 
