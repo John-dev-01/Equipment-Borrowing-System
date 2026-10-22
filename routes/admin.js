@@ -32,6 +32,13 @@ const imageUpload = (req, res, next) => upload.single('image')(req, res, err => 
   }
   next();
 });
+const bulkImageUpload = (req, res, next) => upload.any()(req, res, err => {
+  if (err) {
+    flash(req, 'error', err.code === 'LIMIT_FILE_SIZE' ? 'Image must be 5 MB or smaller.' : 'Upload valid image files.');
+    return res.redirect('/admin/equipment');
+  }
+  next();
+});
 
 router.get('/admin/requests', (req, res) => {
   const rows = db.prepare(`SELECT r.*, e.name AS item, u.name AS borrower FROM borrow_requests r
@@ -75,46 +82,86 @@ router.post('/admin/requests/:id/return', (req, res) => {
   res.redirect('/admin/requests');
 });
 
+const categoryOptions = (categories, selected) => categories.map(c =>
+  `<option value="${esc(c.name)}"${selected === c.name ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+const conditionOptions = selected => ['Good', 'Fair', 'Needs repair'].map(c =>
+  `<option${selected === c ? ' selected' : ''}>${c}</option>`).join('');
 const equipForm = (e = {}, action = '/admin/equipment', label = 'Add item', categories = [], className = 'inline') => `<form method="post" action="${action}" enctype="multipart/form-data" class="${className}">
 <input name="name" placeholder="Name" required value="${esc(e.name)}">
-<select name="category" required aria-label="Category">${categories.map(c =>
-  `<option value="${esc(c.name)}"${e.category === c.name ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+<select name="category" required aria-label="Category">${categoryOptions(categories, e.category)}</select>
 <input type="number" name="quantity" min="0" required value="${esc(e.quantity ?? 1)}" style="width:5rem">
-<select name="condition">${['Good', 'Fair', 'Needs repair'].map(c => `<option${e.condition === c ? ' selected' : ''}>${c}</option>`).join('')}</select>
+<select name="condition">${conditionOptions(e.condition)}</select>
 <label class="image-upload-field">Image<input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"><small>Upload JPG, PNG, GIF, SVG, or WebP images up to 5 MB${e.image_url ? ' or keep the current image below.' : '.'}</small></label>
 <input name="image_url" placeholder="Image URL (optional)" aria-label="Image URL" value="${esc(e.image_url)}">
 <button>${label}</button></form>`;
 
+const adminFilters = (categories, query = {}) => {
+  const q = typeof query.q === 'string' ? query.q.trim() : '';
+  const category = typeof query.category === 'string' ? query.category : '';
+  const condition = typeof query.condition === 'string' ? query.condition : '';
+  const availability = typeof query.availability === 'string' ? query.availability : '';
+  const option = (value, label, selected) => `<option value="${value}"${selected === value ? ' selected' : ''}>${label}</option>`;
+  return `<section class="sidebar-controls" aria-labelledby="filter-heading">
+<div class="sidebar-controls-heading"><h2 id="filter-heading">Filters</h2><a href="/admin/equipment">Clear</a></div>
+<form class="sidebar-filter-form" method="get" action="/admin/equipment">
+<label>Search<input name="q" aria-label="Search equipment" placeholder="Name or category" value="${esc(q)}"></label>
+<label>Category<select name="category" aria-label="Filter by category">${option('', 'All categories', category)}${categories.map(c => option(esc(c.name), esc(c.name), category)).join('')}</select></label>
+<label>Condition<select name="condition" aria-label="Filter by condition">${option('', 'All conditions', condition)}${['Good', 'Fair', 'Needs repair'].map(c => option(c, c, condition)).join('')}</select></label>
+<label>Availability<select name="availability" aria-label="Filter by availability">${option('', 'All availability', availability)}${option('available', 'Available', availability)}${option('unavailable', 'Unavailable', availability)}</select></label>
+<button>Apply filters</button>
+</form></section>`;
+};
+
 router.get('/admin/equipment', (req, res) => {
-  const rows = db.prepare('SELECT * FROM equipment ORDER BY name').all();
   const categories = db.prepare('SELECT name FROM categories ORDER BY name COLLATE NOCASE').all();
-  const body = `<h1>Manage stock</h1>
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const category = categories.some(c => c.name === req.query.category) ? req.query.category : '';
+  const condition = ['Good', 'Fair', 'Needs repair'].includes(req.query.condition) ? req.query.condition : '';
+  const availability = ['available', 'unavailable'].includes(req.query.availability) ? req.query.availability : '';
+  const filters = [];
+  const params = [];
+  if (q) { filters.push('(name LIKE ? OR category LIKE ?)'); params.push(`%${q}%`, `%${q}%`); }
+  if (category) { filters.push('category = ?'); params.push(category); }
+  if (condition) { filters.push('condition = ?'); params.push(condition); }
+  if (availability === 'available') filters.push('quantity > 0');
+  if (availability === 'unavailable') filters.push('quantity = 0');
+  const rows = db.prepare(`SELECT * FROM equipment${filters.length ? ` WHERE ${filters.join(' AND ')}` : ''} ORDER BY name`).all(...params);
+  const cards = rows.map(e => `<article class="admin-equipment-card">
+  <div class="equipment-card-image"><img src="${esc(equipmentImage(e))}" alt="${esc(e.name)}" loading="lazy"></div>
+  <div class="admin-equipment-editor">
+    <div class="admin-item-fields">
+      <label>Name<input name="item_${e.id}_name" placeholder="Name" required value="${esc(e.name)}"></label>
+      <label>Category<select name="item_${e.id}_category" required>${categoryOptions(categories, e.category)}</select></label>
+      <label>Quantity<input type="number" name="item_${e.id}_quantity" min="0" required value="${esc(e.quantity)}"></label>
+      <label>Condition<select name="item_${e.id}_condition">${conditionOptions(e.condition)}</select></label>
+      <label class="image-upload-field">Replace image<input type="file" name="item_${e.id}_image" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"><small>Leave empty to keep the current image.</small></label>
+      <label>Image URL<input name="item_${e.id}_image_url" placeholder="Image URL (optional)" value="${esc(e.image_url)}"></label>
+    </div>
+    <button class="link admin-delete-button" type="submit" formmethod="post" formaction="/admin/equipment/${e.id}/delete">Delete item</button>
+  </div>
+</article>`).join('');
+  const body = `<div class="admin-stock-heading"><div><span class="catalog-kicker">CSPC / RESOURCE LIBRARY</span><h1>Manage stock</h1></div><span class="catalog-count">${rows.length} ${rows.length === 1 ? 'item' : 'items'}</span></div>
 <section><h2>Categories</h2><form method="post" action="/admin/categories" class="inline">
 <input name="name" placeholder="New category name" required maxlength="80"><button>Add category</button></form>
-${categories.length ? `<ul class="category-chips" aria-label="Existing categories">${categories.map(c =>
-  `<li>${esc(c.name)}</li>`).join('')}</ul>` : '<p class="muted">Add a category before adding an item.</p>'}</section>
+${categories.length ? `<ul class="category-chips" aria-label="Existing categories">${categories.map(c => `<li>${esc(c.name)}</li>`).join('')}</ul>` : '<p class="muted">Add a category before adding an item.</p>'}</section>
 <section><h2>Add item</h2><div class="card">${equipForm({}, '/admin/equipment', 'Add item', categories)}</div></section>
-<h2>Items</h2>${rows.length ? `<section class="admin-equipment-grid" aria-label="Edit equipment">
-${rows.map(e => `<article class="admin-equipment-card">
-  <div class="equipment-card-image"><img src="${esc(equipmentImage(e))}" alt="${esc(e.name)}" loading="lazy"></div>
-  <div class="admin-equipment-editor">${equipForm(e, `/admin/equipment/${e.id}`, 'Save changes', categories, 'admin-item-form')}
-    <form method="post" action="/admin/equipment/${e.id}/delete"><button class="link">Delete item</button></form>
-  </div>
-</article>`).join('')}</section>` : '<p class="muted">No equipment has been added yet.</p>'}`;
-  res.send(req.app.locals.page(req, 'Manage stock', body));
+<div class="admin-items-toolbar"><h2>Items</h2>${rows.length ? '<button type="submit" form="bulk-equipment-form">Save changes</button>' : ''}</div>
+${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equipment/bulk" enctype="multipart/form-data"><section class="admin-equipment-grid" aria-label="Edit equipment">${cards}</section><div class="admin-save-footer"><button type="submit">Save changes</button></div></form>` : '<p class="muted">No equipment matches these filters.</p>'}`;
+  res.send(req.app.locals.page(req, 'Manage stock', body, { sidebarControls: adminFilters(categories, req.query) }));
 });
 
-function clean(b, file) {
+function validImageUrl(imageUrl) {
+  return !imageUrl || (imageUrl.length <= 2048 && ((imageUrl.startsWith('/') && !imageUrl.startsWith('//')) || /^https?:\/\//i.test(imageUrl)));
+}
+function clean(b, file, existingImage = '') {
   const q = Number(b.quantity);
-  const imageUrl = file ? `/uploads/equipment/${file.filename}` : (typeof b.image_url === 'string' ? b.image_url.trim() : '');
-  const validImage = !imageUrl || (imageUrl.length <= 2048 &&
-    ((imageUrl.startsWith('/') && !imageUrl.startsWith('//')) || /^https?:\/\//i.test(imageUrl)));
+  const imageUrl = file ? `/uploads/equipment/${file.filename}` : (typeof b.image_url === 'string' ? b.image_url.trim() : existingImage);
   if (typeof b.name !== 'string' || !b.name.trim() ||
       typeof b.category !== 'string' || !db.prepare('SELECT 1 FROM categories WHERE name = ?').get(b.category.trim()) ||
-      !Number.isInteger(q) || q < 0 || !validImage) return null;
+      !Number.isInteger(q) || q < 0 || !validImageUrl(imageUrl)) return null;
   return [b.name.trim(), b.category.trim(), q, ['Good', 'Fair', 'Needs repair'].includes(b.condition) ? b.condition : 'Good', imageUrl];
 }
-const BAD = 'Enter a name, choose a category, enter a whole-number quantity, and use a local path or HTTP(S) image URL.';
+const BAD = 'Enter valid names, categories, whole-number quantities, conditions, and local path or HTTP(S) image URLs.';
 router.post('/admin/categories', (req, res) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!name || name.length > 80) flash(req, 'error', 'Enter a category name of 1 to 80 characters.');
@@ -130,10 +177,29 @@ router.post('/admin/equipment', imageUpload, (req, res) => {
   else { db.prepare('INSERT INTO equipment (name,category,quantity,condition,image_url) VALUES (?,?,?,?,?)').run(...v); flash(req, 'ok', 'Item added.'); }
   res.redirect('/admin/equipment');
 });
-router.post('/admin/equipment/:id', imageUpload, (req, res) => {
-  const v = clean(req.body, req.file);
-  if (!v) flash(req, 'error', BAD);
-  else { db.prepare('UPDATE equipment SET name=?,category=?,quantity=?,condition=?,image_url=? WHERE id=?').run(...v, req.params.id); flash(req, 'ok', 'Item saved.'); }
+router.post('/admin/equipment/bulk', bulkImageUpload, (req, res) => {
+  const rows = db.prepare('SELECT * FROM equipment ORDER BY name').all();
+  const files = new Map((req.files || []).map(file => [file.fieldname, file]));
+  try {
+    db.transaction(() => {
+      for (const row of rows) {
+        const prefix = `item_${row.id}_`;
+        const fields = {
+          name: req.body[`${prefix}name`],
+          category: req.body[`${prefix}category`],
+          quantity: req.body[`${prefix}quantity`],
+          condition: req.body[`${prefix}condition`],
+          image_url: req.body[`${prefix}image_url`],
+        };
+        const v = clean(fields, files.get(`${prefix}image`), row.image_url);
+        if (!v) throw new Error(`Invalid fields for ${row.name}.`);
+        db.prepare('UPDATE equipment SET name=?,category=?,quantity=?,condition=?,image_url=? WHERE id=?').run(...v, row.id);
+      }
+    })();
+    flash(req, 'ok', 'All equipment changes saved.');
+  } catch (error) {
+    flash(req, 'error', error.message || BAD);
+  }
   res.redirect('/admin/equipment');
 });
 router.post('/admin/equipment/:id/delete', (req, res) => {
