@@ -1487,16 +1487,9 @@ html[data-intro-seen="true"] #site-intro,
 
 /* Image blending: keep the card transparent so the subject fades into the page instead of sitting on a gray tile. */
 .equipment-card,
-.admin-equipment-card {
-  background: transparent;
-}
-.equipment-card::after {
-  display: none;
-}
-.equipment-card-image {
-  background: transparent;
-  border: 0;
-}
+.admin-equipment-card { background: transparent; }
+.equipment-card::after { display: none; }
+.equipment-card-image { background: transparent; border: 0; }
 .equipment-card-image img {
   opacity: .95;
   mix-blend-mode: screen;
@@ -1522,7 +1515,11 @@ html[data-intro-seen="true"] #site-intro,
 .admin-stock-heading h1 { margin: 5px 0 0; }
 .admin-items-toolbar { margin-top: 34px; margin-bottom: 15px; align-items: center; }
 .admin-items-toolbar h2 { margin: 0; }
-.admin-equipment-grid { align-items: stretch; }
+.admin-equipment-grid {
+  align-items: stretch;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
 .admin-equipment-card {
   display: flex;
   min-width: 0;
@@ -1556,13 +1553,45 @@ html[data-intro-seen="true"] #site-intro,
   letter-spacing: 0;
   text-transform: none;
 }
-.admin-delete-button { align-self: flex-start; margin-top: auto; padding-top: 16px; }
-.admin-save-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+.admin-delete-button {
+  align-self: flex-start;
+  margin-top: auto;
+  padding-top: 16px;
+}
+.admin-delete-button,
+.admin-delete-button:hover,
+.admin-delete-button:focus-visible {
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  outline: none;
+  text-shadow: none;
+}
+.admin-delete-button:hover,
+.admin-delete-button:focus-visible {
+  text-decoration: none;
+  text-shadow: 0 0 7px rgba(255, 255, 255, .9), 0 0 18px rgba(255, 255, 255, .46);
+}
+/* Client-side images are contained slightly inside the card so they do not feel oversized. */
+.equipment-card:not(.admin-equipment-card) .equipment-card-image img {
+  width: 86%;
+  height: 86%;
+  margin: 7% auto;
+  object-fit: contain;
+}
+html[data-sidebar="hidden"] .admin-equipment-grid {
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 1050px) {
+  .admin-equipment-grid,
+  html[data-sidebar="hidden"] .admin-equipment-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .admin-equipment-grid,
+  html[data-sidebar="hidden"] .admin-equipment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
   .admin-stock-heading,
@@ -1570,5 +1599,8 @@ html[data-intro-seen="true"] #site-intro,
   .admin-stock-heading { flex-direction: column; gap: 5px; }
   .admin-items-toolbar { flex-wrap: wrap; }
   .admin-items-toolbar button { width: 100%; }
-  .admin-save-footer button { width: 100%; }
+}
+@media (max-width: 480px) {
+  .admin-equipment-grid,
+  html[data-sidebar="hidden"] .admin-equipment-grid { grid-template-columns: 1fr; }
 }

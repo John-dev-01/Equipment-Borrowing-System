@@ -146,7 +146,7 @@ router.get('/admin/equipment', (req, res) => {
 ${categories.length ? `<ul class="category-chips" aria-label="Existing categories">${categories.map(c => `<li>${esc(c.name)}</li>`).join('')}</ul>` : '<p class="muted">Add a category before adding an item.</p>'}</section>
 <section><h2>Add item</h2><div class="card">${equipForm({}, '/admin/equipment', 'Add item', categories)}</div></section>
 <div class="admin-items-toolbar"><h2>Items</h2>${rows.length ? '<button type="submit" form="bulk-equipment-form">Save changes</button>' : ''}</div>
-${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equipment/bulk" enctype="multipart/form-data"><section class="admin-equipment-grid" aria-label="Edit equipment">${cards}</section><div class="admin-save-footer"><button type="submit">Save changes</button></div></form>` : '<p class="muted">No equipment matches these filters.</p>'}`;
+${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equipment/bulk" enctype="multipart/form-data"><section class="admin-equipment-grid" aria-label="Edit equipment">${cards}</section></form>` : '<p class="muted">No equipment matches these filters.</p>'}`;
   res.send(req.app.locals.page(req, 'Manage stock', body, { sidebarControls: adminFilters(categories, req.query) }));
 });
 
