@@ -113,6 +113,36 @@ button:active, .btn:active { transform: translateY(1px); }
 button.share { padding: 7px 11px; color: var(--ink); background: transparent; border-color: var(--line-strong); font-size: 10px; }
 button.share:hover { color: var(--accent-ink); background: var(--accent); }
 button.link { padding: 0; color: var(--ink); background: none; border: 0; text-decoration: underline; font-weight: 400; }
+/* Request actions stay text-only; hover/focus glows the label, never a box. */
+.request-table .acts button.link,
+table button.link {
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  filter: none;
+  text-decoration: none;
+  transition: color .18s ease, text-shadow .18s ease;
+}
+.request-table .acts button.link:hover,
+.request-table .acts button.link:focus-visible,
+table button.link:hover,
+table button.link:focus-visible {
+  color: #ffffff;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  filter: none;
+  text-shadow: 0 0 5px rgba(255, 255, 255, .85), 0 0 12px rgba(255, 255, 255, .5);
+}
+:root[data-theme="light"] .request-table .acts button.link:hover,
+:root[data-theme="light"] .request-table .acts button.link:focus-visible,
+:root[data-theme="light"] table button.link:hover,
+:root[data-theme="light"] table button.link:focus-visible {
+  color: #ffffff;
+  text-shadow: 0 0 5px rgba(255, 255, 255, .85), 0 0 12px rgba(255, 255, 255, .5);
+}
 .acts { white-space: nowrap; }
 .acts form { display: inline-block; margin: 0 12px 0 0; }
 .acts form:last-child { margin-right: 0; }
