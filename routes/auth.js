@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../middleware/db');
 const { esc } = require('../middleware/views');
+const departments = require('../middleware/departments');
 const router = express.Router();
 
 const CSPC_DOMAIN = '@my.cspc.edu.ph';
@@ -18,6 +19,7 @@ const form = (kind, error = '', v = {}) => `<div class="auth-shell ${kind === 'l
       <form method="post" class="auth-card">
         ${kind === 'register' ? `<label>Full name<input name="name" autocomplete="name" placeholder="Full name" required value="${esc(v.name)}"></label>` : ''}
         <label>CSPC email<input type="email" name="email" autocomplete="email" placeholder="CSPC email" required value="${esc(v.email)}"${kind === 'register' ? ' pattern="[^@\\s]+@my\\.cspc\\.edu\\.ph" title="Use your @my.cspc.edu.ph email address"' : ''}></label>
+        ${kind === 'register' ? `<label>College / campus<div class="department-select${v.department ? ' has-value' : ''}" data-department-select data-required-selection><input type="hidden" name="department" value="${esc(v.department || '')}" data-department-value><button class="department-select-trigger" type="button" data-department-trigger role="combobox" aria-label="Select your college or campus" aria-haspopup="listbox" aria-expanded="false" aria-controls="department-options" aria-required="true"><span data-department-label>${esc(v.department || 'Select your college / campus')}</span><span class="department-select-chevron" aria-hidden="true"></span></button><div class="department-select-menu" id="department-options" data-department-options role="listbox" aria-label="Departments" hidden>${departments.map(name => `<button type="button" class="department-option" data-department-option data-value="${esc(name)}" role="option" aria-selected="${v.department === name}">${esc(name)}</button>`).join('')}</div><span class="department-error" data-department-error hidden>Please choose a department.</span></div></label>` : ''}
         <label>Password<input type="password" name="password" autocomplete="${kind === 'login' ? 'current-password' : 'new-password'}" placeholder="Password" required minlength="8"></label>
         ${kind === 'login' ? '<label class="remember-option"><input type="checkbox" name="remember"> <span>Remember me</span></label>' : ''}
         ${kind === 'register' ? '<p class="field-note">Use at least 8 characters. New accounts start with the borrower role.</p>' : ''}
@@ -70,12 +72,14 @@ router.post('/register', (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || '');
-  const fail = message => res.status(400).send(req.app.locals.page(req, 'Create account', form('register', message, { name, email })));
+  const department = String(req.body.department || '').trim();
+  const fail = message => res.status(400).send(req.app.locals.page(req, 'Create account', form('register', message, { name, email, department })));
   if (name.length < 2 || name.length > 120) return fail('Enter your full name.');
   if (!isCspcEmail(email)) return fail(`Use your ${CSPC_DOMAIN} email address.`);
+  if (!departments.includes(department)) return fail('Choose your college or campus.');
   if (password.length < 8) return fail('Password must be at least 8 characters.');
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return fail('That CSPC email is already registered.');
-  db.prepare('INSERT INTO users (name,email,password_hash,role) VALUES (?,?,?,?)').run(name, email, bcrypt.hashSync(password, 12), 'borrower');
+  db.prepare('INSERT INTO users (name,email,password_hash,role,department) VALUES (?,?,?,?,?)').run(name, email, bcrypt.hashSync(password, 12), 'borrower', department);
   res.redirect('/login');
 });
 

@@ -48,7 +48,9 @@ function requirePermission(permission) {
 }
 
 function requireRole(role) {
-  return requirePermission(role === 'admin' ? 'equipment:manage' : 'equipment:read');
+  return requirePermission(
+    role === 'admin' ? 'equipment:manage' : 'equipment:read'
+  );
 }
 
 module.exports = {

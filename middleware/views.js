@@ -14,13 +14,14 @@ function page(req, title, body, options = {}) {
   const u = req.session.user;
   const flash = req.session.flash; delete req.session.flash;
   const path = req.path || '';
+  const themeStorageKey = u ? `cspc-theme:user:${u.id}` : 'cspc-theme:guest';
   const replayIntro = !u && (path === '/login' || path === '/register');
   const sectionTitle = !u ? '' : u.role === 'admin'
     ? (path === '/admin/chat' || path === '/admin/messages' ? 'Chat' : path.startsWith('/admin/equipment') || path.startsWith('/admin/categories') ? 'Manage stock' : 'Request queue')
     : (path === '/chat' || path === '/messages' ? 'Chat' : path === '/my-requests' || path.startsWith('/requests/') ? 'My requests' : 'Equipment');
-  const tabTitle = !u ? `${title} | CCS Vault`
-    : u.role === 'admin' ? `${sectionTitle} | Admin | CCS Vault`
-    : `${sectionTitle} | ${(u.name || 'Account').trim()} | CCS Vault`;
+  const tabTitle = !u ? `${title} | CSPC Equipment Desk`
+    : u.role === 'admin' ? `${sectionTitle} | Admin | CSPC Equipment Desk`
+    : `${sectionTitle} | ${(u.name || 'Account').trim()} | CSPC Equipment Desk`;
   const link = (href, icon, label) => `<a href="${href}" title="${label}" aria-label="${label}"${path === href ? ' class="active" aria-current="page"' : ''}>${ICONS[icon]}<span>${label}</span></a>`;
   const flashHtml = flash ? `<p class="flash ${flash.type}">${esc(flash.msg)}</p>` : '';
   const intro = `<div id="site-intro" class="site-intro" role="status" aria-live="polite">
@@ -33,16 +34,16 @@ function page(req, title, body, options = {}) {
           <path class="core-lines" d="M24 13v12.5m11-6.15-11 6.15-11-6.15" />
         </svg>
       </div>
-      <p id="site-intro-tagline" class="site-intro-tagline" hidden>CCS Vault | Equipment Borrowing</p>
+      <p id="site-intro-tagline" class="site-intro-tagline" hidden>CSPC Vault</p>
     </div>
   </div>`;
-  const head = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>${esc(tabTitle)}</title><link id="animated-favicon" rel="icon" type="image/png" sizes="96x96" href="/favicon.png"><script>(()=>{try{const t=localStorage.getItem('cspc-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;if(localStorage.getItem('cspc-sidebar')==='hidden')document.documentElement.dataset.sidebar='hidden';const introSeen=sessionStorage.getItem('ccs-intro-seen-v2')==='1';sessionStorage.setItem('ccs-intro-seen-v2','1');if(introSeen&&!${replayIntro})document.documentElement.dataset.introSeen='true'}catch(e){}})()</script><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/favicon.js" defer></script><script src="/intro.js" defer></script><script src="/chat.js" defer></script></head><body class="${u ? 'portal-body' : 'auth-body'}">${intro}`;
+  const head = `<!doctype html><html lang="en" data-theme-storage-key="${esc(themeStorageKey)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>${esc(tabTitle)}</title><link id="animated-favicon" rel="icon" type="image/png" sizes="96x96" href="/favicon.png"><script>(()=>{try{const key=document.documentElement.dataset.themeStorageKey||'cspc-theme:guest';const t=localStorage.getItem(key);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;if(localStorage.getItem('cspc-sidebar')==='hidden')document.documentElement.dataset.sidebar='hidden';const introSeen=sessionStorage.getItem('cspc-intro-seen-v2')==='1';sessionStorage.setItem('cspc-intro-seen-v2','1');if(introSeen&&!${replayIntro})document.documentElement.dataset.introSeen='true'}catch(e){}})()</script><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/favicon.js" defer></script><script src="/intro.js" defer></script><script src="/chat.js" defer></script></head><body class="${u ? 'portal-body' : 'auth-body'}">${intro}`;
   if (!u) return `${head}<div class="app guest"><div class="content"><main>${flashHtml}${body}</main></div></div></body></html>`;
   const side = u.role === 'admin'
     ? link('/admin/requests', 'queue', 'Request queue') + link('/admin/equipment', 'stock', 'Manage equipment') + link('/admin/chat', 'messages', 'Chat')
     : link('/equipment', 'equipment', 'Equipment') + link('/my-requests', 'requests', 'My requests') + link('/chat', 'messages', 'Chat');
   const account = `<div class="account-menu"><button class="account-trigger" type="button" data-account-toggle aria-expanded="false" aria-haspopup="true" aria-controls="account-menu"><span class="avatar" aria-hidden="true">${esc((u.name || '?').trim().charAt(0).toUpperCase())}</span><span class="who"><strong>${esc(u.name)}</strong><small>${esc(roleLabel(u.role))}</small></span></button><div class="account-popover" id="account-menu" data-account-menu hidden><span class="account-menu-name">${esc(u.name)}</span><small>${esc(u.email)}</small><form method="post" action="/logout"><button class="signout-button">Sign out</button></form></div></div>`;
-  return `${head}<div class="app"><aside class="sidebar" id="control-sidebar"><div class="sidebar-heading"><a class="brand" href="/" aria-label="CCS Equipment Desk"><span class="brand-logo" aria-hidden="true"><svg viewBox="0 0 48 48"><path class="brand-orbit" d="M24 4a20 20 0 1 1-14.14 5.86" /><path class="brand-orbit brand-orbit-secondary" d="M24 10a14 14 0 1 1-9.9 4.1" /><path class="brand-core" d="m24 13 11 6.35v12.3L24 38l-11-6.35v-12.3z" /><path class="brand-core-lines" d="M24 13v12.5m11-6.15-11 6.15-11-6.15" /></svg></span><span class="brand-copy">CCS  
+  return `${head}<div class="app"><aside class="sidebar" id="control-sidebar"><div class="sidebar-heading"><a class="brand" href="/" aria-label="CSPC Equipment Desk"><span class="brand-logo" aria-hidden="true"><svg viewBox="0 0 48 48"><path class="brand-orbit" d="M24 4a20 20 0 1 1-14.14 5.86" /><path class="brand-orbit brand-orbit-secondary" d="M24 10a14 14 0 1 1-9.9 4.1" /><path class="brand-core" d="m24 13 11 6.35v12.3L24 38l-11-6.35v-12.3z" /><path class="brand-core-lines" d="M24 13v12.5m11-6.15-11 6.15-11-6.15" /></svg></span><span class="brand-copy">CSPC  
 <small>EQUIPMENT DESK</small></span></a>${sidebarToggle}</div><nav>${side}</nav>${options.sidebarControls || ''}<div class="sidebar-bottom">${account}${themeToggle}</div></aside><div class="content"><main>${flashHtml}${body}</main></div></div></body></html>`;
 }
 const badge = s => `<span class="badge ${esc(s)}">${esc(s)}</span>`;

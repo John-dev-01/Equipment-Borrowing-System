@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../middleware/db');
 const { esc, badge } = require('../middleware/views');
+const filterDropdown = require('../middleware/filter-dropdown');
 const equipmentImage = require('../middleware/equipment-images');
 const { requirePermission } = require('../middleware/auth');
 const router = express.Router();
@@ -50,17 +51,9 @@ router.get('/equipment', guard, (req, res) => {
 <div class="sidebar-controls-heading"><h2 id="filter-heading">Filters</h2><a href="/equipment">Clear</a></div>
 <form class="sidebar-filter-form" method="get" action="/equipment">
 <label>Search<input name="q" aria-label="Search equipment" placeholder="Name or category" value="${esc(q)}"></label>
-<label>Category<select name="category" aria-label="Filter by category">
-<option value="">All categories</option>${categories.map(c => `<option value="${esc(c)}"${category === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
-</select></label>
-<label>Condition<select name="condition" aria-label="Filter by condition">
-<option value="">All conditions</option>${conditions.map(c => `<option value="${esc(c)}"${condition === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}
- </select></label>
-<label>Availability<select name="availability" aria-label="Filter by availability">
-<option value="">All availability</option>
-<option value="available"${availability === 'available' ? ' selected' : ''}>Available</option>
-<option value="unavailable"${availability === 'unavailable' ? ' selected' : ''}>Unavailable</option>
- </select></label>
+${filterDropdown('category', 'Category', category, [{ value: '', label: 'All categories' }, ...categories.map(value => ({ value, label: value }))])}
+${filterDropdown('condition', 'Condition', condition, [{ value: '', label: 'All conditions' }, ...conditions.map(value => ({ value, label: value }))])}
+${filterDropdown('availability', 'Availability', availability, [{ value: '', label: 'All availability' }, { value: 'available', label: 'Available' }, { value: 'unavailable', label: 'Unavailable' }])}
 <button>Apply filters</button>
 </form></section>`;
   const body = `<div class="catalog-heading"><div><span class="catalog-kicker">CSPC / RESOURCE LIBRARY</span><h1>Equipment</h1></div><span class="catalog-count">${rows.length} ${rows.length === 1 ? 'item' : 'items'}</span></div>

@@ -5,6 +5,12 @@
   const role = root.dataset.chatRole;
   if (role !== 'borrower' && role !== 'admin') return;
   const list = root.querySelector('[data-chat-conversations]');
+  const filterToggle = root.querySelector('[data-chat-filter-toggle]');
+  const filterPanel = root.querySelector('[data-chat-filter-panel]');
+  const filterSummary = root.querySelector('[data-chat-filter-summary]');
+  const filterClear = root.querySelector('[data-chat-filter-clear]');
+  const departmentFilters = new Set();
+  const departmentCheckboxes = [...root.querySelectorAll('[data-department-filter]')];
   const messagePane = root.querySelector('[data-chat-messages]');
   const title = root.querySelector('[data-chat-title]');
   const subtitle = root.querySelector('[data-chat-subtitle]');
@@ -113,22 +119,25 @@
   function renderConversations(rows) {
     if (!list) return;
     currentConversations = rows;
-    const signature = JSON.stringify(rows);
+    const visibleRows = departmentFilters.size
+      ? rows.filter(conversation => departmentFilters.has(conversation.department))
+      : rows;
+    const signature = JSON.stringify({ rows, departments: [...departmentFilters].sort() });
     if (signature === conversationSignature) {
       setActiveConversation(activeBorrowerId);
       return;
     }
     conversationSignature = signature;
     list.replaceChildren();
-    if (!rows.length) {
+    if (!visibleRows.length) {
       const empty = document.createElement('p');
       empty.className = 'chat-empty chat-inbox-empty';
-      empty.textContent = 'No borrower accounts are available yet.';
+      empty.textContent = rows.length ? 'No borrowers match the selected departments.' : 'No borrower accounts are available yet.';
       list.append(empty);
       return;
     }
 
-    for (const conversation of rows) {
+    for (const conversation of visibleRows) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'chat-conversation';
@@ -148,10 +157,13 @@
       const email = document.createElement('span');
       email.className = 'chat-conversation-email';
       email.textContent = conversation.email;
+      const department = document.createElement('span');
+      department.className = 'chat-conversation-department';
+      department.textContent = conversation.department || 'College of Computer Studies';
       const preview = document.createElement('span');
       preview.className = 'chat-conversation-preview';
       preview.textContent = conversation.last_message || 'Start a conversation';
-      button.append(top, email, preview);
+      button.append(top, email, department, preview);
       button.addEventListener('click', () => selectConversation(Number(conversation.borrower_id)));
       list.append(button);
     }
@@ -167,7 +179,7 @@
     if (activeBorrowerId === null) return;
     const data = await requestJson(`/api/admin/chat/conversations/${activeBorrowerId}/messages`);
     title.textContent = data.borrower.name;
-    subtitle.textContent = `${data.borrower.email} · private conversation`;
+    subtitle.textContent = `${data.borrower.department || 'College of Computer Studies'} · ${data.borrower.email} · private conversation`;
     renderMessages(data.messages, reset);
   }
 
@@ -180,7 +192,9 @@
     if (changed) {
       const selected = currentConversations.find(item => Number(item.borrower_id) === id);
       title.textContent = selected?.name || 'Borrower';
-      subtitle.textContent = selected?.email || 'Private conversation';
+      subtitle.textContent = selected
+        ? `${selected.department || 'College of Computer Studies'} · ${selected.email}`
+        : 'Private conversation';
       showEmpty('Loading conversation…');
       lastMessageId = 0;
     }
@@ -261,6 +275,59 @@
     list.addEventListener('keydown', event => {
       if (event.key === 'Escape') textarea.focus();
     });
+  }
+  if (role === 'admin' && filterToggle && filterPanel) {
+    let filterPanelCloseTimer;
+    const closeFilterPanel = () => {
+      if (filterPanelCloseTimer) window.clearTimeout(filterPanelCloseTimer);
+      if (filterPanel.hidden) return;
+      filterPanel.classList.remove('is-open');
+      filterToggle.setAttribute('aria-expanded', 'false');
+      filterPanelCloseTimer = window.setTimeout(() => {
+        if (!filterPanel.classList.contains('is-open')) filterPanel.hidden = true;
+        filterPanelCloseTimer = undefined;
+      }, 180);
+    };
+    const openFilterPanel = () => {
+      if (filterPanelCloseTimer) window.clearTimeout(filterPanelCloseTimer);
+      filterPanelCloseTimer = undefined;
+      filterPanel.hidden = false;
+      filterPanel.classList.remove('is-open');
+      void filterPanel.offsetWidth;
+      filterToggle.setAttribute('aria-expanded', 'true');
+      window.requestAnimationFrame(() => {
+        if (!filterPanel.hidden && filterToggle.getAttribute('aria-expanded') === 'true') filterPanel.classList.add('is-open');
+      });
+    };
+    const updateFilterSummary = () => {
+      const count = departmentFilters.size;
+      filterToggle.textContent = count ? `Filter · ${count}` : 'Filter';
+      filterSummary.textContent = count ? `${count} department${count === 1 ? '' : 's'} selected` : 'All departments';
+      filterToggle.setAttribute('aria-label', count ? `Filter borrowers; ${count} department${count === 1 ? '' : 's'} selected` : 'Filter borrowers by department');
+    };
+    filterToggle.addEventListener('click', () => {
+      if (filterPanel.classList.contains('is-open')) closeFilterPanel();
+      else openFilterPanel();
+    });
+    filterPanel.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        closeFilterPanel();
+        filterToggle.focus();
+      }
+    });
+    departmentCheckboxes.forEach(checkbox => checkbox.addEventListener('change', () => {
+      if (checkbox.checked) departmentFilters.add(checkbox.value);
+      else departmentFilters.delete(checkbox.value);
+      updateFilterSummary();
+      renderConversations(currentConversations);
+    }));
+    filterClear?.addEventListener('click', () => {
+      departmentFilters.clear();
+      departmentCheckboxes.forEach(checkbox => { checkbox.checked = false; });
+      updateFilterSummary();
+      renderConversations(currentConversations);
+    });
+    updateFilterSummary();
   }
   window.addEventListener('beforeunload', () => window.clearTimeout(refreshTimer), { once: true });
   refresh();

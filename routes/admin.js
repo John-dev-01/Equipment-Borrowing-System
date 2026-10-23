@@ -4,6 +4,7 @@ const path = require('path');
 const multer = require('multer');
 const db = require('../middleware/db');
 const { esc, badge, stats } = require('../middleware/views');
+const filterDropdown = require('../middleware/filter-dropdown');
 const equipmentImage = require('../middleware/equipment-images');
 const { requirePermission } = require('../middleware/auth');
 const router = express.Router();
@@ -15,7 +16,13 @@ const flash = (req, type, msg) => (req.session.flash = { type, msg });
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'equipment');
 fs.mkdirSync(uploadDir, { recursive: true });
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: uploadDir,
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`);
+    },
+  }),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\/(jpeg|png|gif|webp|svg\+xml)$/i.test(file.mimetype)),
 });
@@ -94,14 +101,13 @@ const adminFilters = (categories, query = {}) => {
   const category = typeof query.category === 'string' ? query.category : '';
   const condition = typeof query.condition === 'string' ? query.condition : '';
   const availability = typeof query.availability === 'string' ? query.availability : '';
-  const option = (value, label, selected) => `<option value="${value}"${selected === value ? ' selected' : ''}>${label}</option>`;
   return `<section class="sidebar-controls" aria-labelledby="filter-heading">
 <div class="sidebar-controls-heading"><h2 id="filter-heading">Filters</h2><a href="/admin/equipment">Clear</a></div>
 <form class="sidebar-filter-form" method="get" action="/admin/equipment">
 <label>Search<input name="q" aria-label="Search equipment" placeholder="Name or category" value="${esc(q)}"></label>
-<label>Category<select name="category" aria-label="Filter by category">${option('', 'All categories', category)}${categories.map(c => option(esc(c.name), esc(c.name), category)).join('')}</select></label>
-<label>Condition<select name="condition" aria-label="Filter by condition">${option('', 'All conditions', condition)}${['Good', 'Fair', 'Needs repair'].map(c => option(c, c, condition)).join('')}</select></label>
-<label>Availability<select name="availability" aria-label="Filter by availability">${option('', 'All availability', availability)}${option('available', 'Available', availability)}${option('unavailable', 'Unavailable', availability)}</select></label>
+${filterDropdown('category', 'Category', category, [{ value: '', label: 'All categories' }, ...categories.map(({ name }) => ({ value: name, label: name }))])}
+${filterDropdown('condition', 'Condition', condition, [{ value: '', label: 'All conditions' }, ...['Good', 'Fair', 'Needs repair'].map(value => ({ value, label: value }))])}
+${filterDropdown('availability', 'Availability', availability, [{ value: '', label: 'All availability' }, { value: 'available', label: 'Available' }, { value: 'unavailable', label: 'Unavailable' }])}
 <button>Apply filters</button>
 </form></section>`;
 };
@@ -135,23 +141,18 @@ router.get('/admin/equipment', (req, res) => {
   </div>
 </article>`).join('');
   const body = `<div class="admin-stock-heading"><div><span class="catalog-kicker">CSPC / RESOURCE LIBRARY</span><h1>Manage stock</h1></div><span class="catalog-count">${rows.length} ${rows.length === 1 ? 'item' : 'items'}</span></div>
-<section><h2>Categories</h2><form method="post" action="/admin/categories" class="inline">
-<input name="name" placeholder="New category name" required maxlength="80"><button>Add category</button></form>
-${categories.length ? `<ul class="category-chips" aria-label="Existing categories">${categories.map(c => `<li>${esc(c.name)}</li>`).join('')}</ul>` : '<p class="muted">Add a category before adding an item.</p>'}</section>
-<section><h2>Add item</h2><div class="card">${equipForm({}, '/admin/equipment', 'Add item', categories)}</div></section>
-<div class="admin-items-toolbar"><h2>Items</h2>${rows.length ? '<button type="submit" form="bulk-equipment-form">Save changes</button>' : ''}</div>
-${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equipment/bulk" enctype="multipart/form-data"><section class="admin-equipment-grid" aria-label="Edit equipment">${cards}</section></form>` : '<p class="muted">No equipment matches these filters.</p>'}`;
+<div class="admin-items-toolbar"><h2>Items</h2><div class="admin-items-actions"><button type="button" data-open-add-item>Add Item</button>${rows.length ? '<button type="submit" form="bulk-equipment-form">Save changes</button>' : ''}</div></div>
+${rows.length ? `<form id="bulk-equipment-form" method="post" action="/admin/equipment/bulk" enctype="multipart/form-data"><section class="admin-equipment-grid" aria-label="Edit equipment">${cards}</section></form>` : '<p class="muted">No equipment matches these filters.</p>'}
+<dialog class="admin-add-dialog" data-add-item-dialog aria-labelledby="add-item-dialog-title"><div class="admin-add-dialog-content"><div class="admin-add-dialog-heading"><div><span class="catalog-kicker">CSPC / RESOURCE LIBRARY</span><h2 id="add-item-dialog-title">Add Item</h2></div><button type="button" class="admin-add-dialog-close" data-close-add-item aria-label="Close add item dialog" title="Close">×</button></div>${equipForm({}, '/admin/equipment', 'Add Item', categories, 'admin-item-form')}</div></dialog>`;
   res.send(req.app.locals.page(req, 'Manage stock', body, { sidebarControls: adminFilters(categories, req.query) }));
 });
 
 function validImageUrl(imageUrl) {
-  if (!imageUrl) return true;
-  if (/^data:image\/(jpeg|png|gif|webp|svg\+xml);base64,/i.test(imageUrl)) return imageUrl.length <= 8 * 1024 * 1024;
-  return imageUrl.length <= 2048 && ((imageUrl.startsWith('/') && !imageUrl.startsWith('//')) || /^https?:\/\//i.test(imageUrl));
+  return !imageUrl || (imageUrl.length <= 2048 && ((imageUrl.startsWith('/') && !imageUrl.startsWith('//')) || /^https?:\/\//i.test(imageUrl)));
 }
 function clean(b, file, existingImage = '') {
   const q = Number(b.quantity);
-  const imageUrl = file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : (typeof b.image_url === 'string' ? b.image_url.trim() : existingImage);
+  const imageUrl = file ? `/uploads/equipment/${file.filename}` : (typeof b.image_url === 'string' ? b.image_url.trim() : existingImage);
   if (typeof b.name !== 'string' || !b.name.trim() ||
       typeof b.category !== 'string' || !db.prepare('SELECT 1 FROM categories WHERE name = ?').get(b.category.trim()) ||
       !Number.isInteger(q) || q < 0 || !validImageUrl(imageUrl)) return null;

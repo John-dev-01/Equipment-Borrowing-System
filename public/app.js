@@ -1,6 +1,17 @@
 (() => {
   const root = document.documentElement;
   let theme = root.dataset.theme === 'light' ? 'light' : 'dark';
+  const themeStorageKey = root.dataset.themeStorageKey || 'cspc-theme:guest';
+  const departmentOptions = [
+    'College of Engineering and Architecture',
+    'College of Computer Studies',
+    'College of Health Sciences',
+    'College of Arts and Sciences',
+    'College of Tourism, Hospitality, and Business Management',
+    'College of Technological and Developmental Education',
+    'Buhi Campus',
+    'Graduate School / Advanced Programs',
+  ];
 
   const fixedCursor = document.createElement('span');
   fixedCursor.id = 'custom-cursor';
@@ -43,6 +54,132 @@
     requestAnimationFrame(updateCursorContrast);
   };
 
+  const departmentMenuCloseTimers = new WeakMap();
+  const closeDepartmentMenu = (wrapper, restoreFocus = false) => {
+    if (!wrapper) return;
+    const trigger = wrapper.querySelector('[data-department-trigger]');
+    const menu = wrapper.querySelector('[data-department-options]');
+    if (menu) {
+      const timer = departmentMenuCloseTimers.get(menu);
+      if (timer) window.clearTimeout(timer);
+      menu.classList.remove('is-open');
+      if (!menu.hidden) {
+        const closeTimer = window.setTimeout(() => {
+          if (!menu.classList.contains('is-open')) menu.hidden = true;
+          departmentMenuCloseTimers.delete(menu);
+        }, 180);
+        departmentMenuCloseTimers.set(menu, closeTimer);
+      }
+    }
+    trigger?.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) trigger?.focus();
+  };
+  const openDepartmentMenu = wrapper => {
+    document.querySelectorAll('[data-department-select]').forEach(other => {
+      if (other !== wrapper) closeDepartmentMenu(other);
+    });
+    const menu = wrapper?.querySelector('[data-department-options]');
+    const trigger = wrapper?.querySelector('[data-department-trigger]');
+    if (!menu || !trigger) return;
+    const timer = departmentMenuCloseTimers.get(menu);
+    if (timer) window.clearTimeout(timer);
+    departmentMenuCloseTimers.delete(menu);
+    const rect = trigger.getBoundingClientRect();
+    const roomBelow = window.innerHeight - rect.bottom;
+    const roomAbove = rect.top;
+    menu.classList.toggle('opens-upward', roomBelow < Math.min(250, window.innerHeight * 0.38) && roomAbove > roomBelow);
+    menu.hidden = false;
+    menu.classList.remove('is-open');
+    void menu.offsetWidth;
+    trigger.setAttribute('aria-expanded', 'true');
+    const selected = menu.querySelector('[aria-selected="true"]') || menu.querySelector('[data-department-option]');
+    window.requestAnimationFrame(() => {
+      if (menu.hidden || trigger.getAttribute('aria-expanded') !== 'true') return;
+      menu.classList.add('is-open');
+      selected?.focus();
+    });
+  };
+
+  document.addEventListener('click', event => {
+    const trigger = event.target.closest('[data-department-trigger]');
+    if (trigger) {
+      const wrapper = trigger.closest('[data-department-select]');
+      const menu = wrapper?.querySelector('[data-department-options]');
+      if (!menu?.classList.contains('is-open')) openDepartmentMenu(wrapper);
+      else closeDepartmentMenu(wrapper);
+      return;
+    }
+
+    const option = event.target.closest('[data-department-option]');
+    if (option) {
+      const wrapper = option.closest('[data-department-select]');
+      const value = wrapper?.querySelector('[data-department-value]');
+      const label = wrapper?.querySelector('[data-department-label]');
+      if (value && label) {
+        value.value = option.dataset.value || '';
+        label.textContent = option.textContent.trim();
+        wrapper.classList.toggle('has-value', Boolean(value.value) || wrapper.classList.contains('filter-select'));
+        wrapper.classList.remove('is-invalid');
+        wrapper.querySelector('[data-department-error]')?.setAttribute('hidden', '');
+        wrapper.classList.remove('is-selecting');
+        void wrapper.offsetWidth;
+        wrapper.classList.add('is-selecting');
+        window.setTimeout(() => wrapper.classList.remove('is-selecting'), 240);
+        wrapper.querySelectorAll('[data-department-option]').forEach(item => {
+          const selected = item === option;
+          item.setAttribute('aria-selected', String(selected));
+          item.classList.toggle('is-selected', selected);
+        });
+      }
+      closeDepartmentMenu(wrapper, true);
+      return;
+    }
+
+    if (!event.target.closest('[data-department-select]')) {
+      document.querySelectorAll('[data-department-select]').forEach(wrapper => closeDepartmentMenu(wrapper));
+    }
+  });
+
+  document.addEventListener('keydown', event => {
+    const trigger = event.target.closest('[data-department-trigger]');
+    if (trigger && ['ArrowDown', 'Enter', ' '].includes(event.key)) {
+      const wrapper = trigger.closest('[data-department-select]');
+      const menu = wrapper?.querySelector('[data-department-options]');
+      if (menu && !menu.classList.contains('is-open')) {
+        event.preventDefault();
+        openDepartmentMenu(wrapper);
+      }
+      return;
+    }
+
+    const option = event.target.closest('[data-department-option]');
+    if (!option) return;
+    const wrapper = option.closest('[data-department-select]');
+    const options = [...(wrapper?.querySelectorAll('[data-department-option]') || [])];
+    const index = options.indexOf(option);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeDepartmentMenu(wrapper, true);
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0
+        : event.key === 'End' ? options.length - 1
+          : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+      options[next]?.focus();
+    }
+  });
+
+  document.addEventListener('submit', event => {
+    const wrapper = event.target.querySelector('[data-department-select][data-required-selection]');
+    if (!wrapper) return;
+    const value = wrapper.querySelector('[data-department-value]');
+    if (value?.value) return;
+    event.preventDefault();
+    wrapper.classList.add('is-invalid');
+    wrapper.querySelector('[data-department-error]')?.removeAttribute('hidden');
+    wrapper.querySelector('[data-department-trigger]')?.focus();
+  }, true);
+
   const moveFixedCursor = event => {
     if (event.pointerType === 'touch') return;
     lastX = event.clientX;
@@ -75,7 +212,7 @@
     button.addEventListener('click', () => {
       theme = theme === 'dark' ? 'light' : 'dark';
       root.dataset.theme = theme;
-      try { localStorage.setItem('cspc-theme', theme); } catch (error) { /* Keep switching available without storage. */ }
+      try { localStorage.setItem(themeStorageKey, theme); } catch (error) { /* Keep switching available without storage. */ }
       updateButtons();
     });
   });
@@ -100,16 +237,34 @@
 
   const accountToggle = document.querySelector('[data-account-toggle]');
   const accountMenu = document.querySelector('[data-account-menu]');
+  let accountMenuCloseTimer;
   const closeAccountMenu = () => {
     if (!accountToggle || !accountMenu) return;
-    accountMenu.hidden = true;
+    if (accountMenuCloseTimer) window.clearTimeout(accountMenuCloseTimer);
+    if (accountMenu.hidden) return;
+    accountMenu.classList.remove('is-open');
     accountToggle.setAttribute('aria-expanded', 'false');
+    accountMenuCloseTimer = window.setTimeout(() => {
+      if (!accountMenu.classList.contains('is-open')) accountMenu.hidden = true;
+      accountMenuCloseTimer = undefined;
+    }, 190);
+  };
+  const openAccountMenu = () => {
+    if (!accountToggle || !accountMenu) return;
+    if (accountMenuCloseTimer) window.clearTimeout(accountMenuCloseTimer);
+    accountMenuCloseTimer = undefined;
+    accountMenu.hidden = false;
+    accountMenu.classList.remove('is-open');
+    accountToggle.setAttribute('aria-expanded', 'true');
+    void accountMenu.offsetWidth;
+    window.requestAnimationFrame(() => {
+      if (!accountMenu.hidden && accountToggle.getAttribute('aria-expanded') === 'true') accountMenu.classList.add('is-open');
+    });
   };
   if (accountToggle && accountMenu) {
     accountToggle.addEventListener('click', () => {
-      const isOpen = accountMenu.hidden;
-      accountMenu.hidden = !isOpen;
-      accountToggle.setAttribute('aria-expanded', String(isOpen));
+      if (accountMenu.classList.contains('is-open')) closeAccountMenu();
+      else openAccountMenu();
     });
     document.addEventListener('click', event => {
       if (!event.target.closest('.account-menu')) closeAccountMenu();
@@ -119,6 +274,47 @@
         closeAccountMenu();
         accountToggle.focus();
       }
+    });
+  }
+
+  const addItemDialog = document.querySelector('[data-add-item-dialog]');
+  const openAddItemButton = document.querySelector('[data-open-add-item]');
+  const closeAddItemButton = addItemDialog?.querySelector('[data-close-add-item]');
+  if (addItemDialog && openAddItemButton) {
+    let addItemCloseTimer;
+    const closeAddItemDialog = () => {
+      if (!addItemDialog.open || addItemDialog.classList.contains('is-closing')) return;
+      addItemDialog.classList.add('is-closing');
+      const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
+      addItemCloseTimer = window.setTimeout(() => {
+        addItemCloseTimer = undefined;
+        addItemDialog.classList.remove('is-closing');
+        if (addItemDialog.open) addItemDialog.close();
+      }, delay);
+    };
+    openAddItemButton.addEventListener('click', () => {
+      if (addItemCloseTimer) window.clearTimeout(addItemCloseTimer);
+      addItemCloseTimer = undefined;
+      addItemDialog.classList.remove('is-closing');
+      if (addItemDialog.open) return;
+      addItemDialog.showModal();
+      addItemDialog.appendChild(fixedCursor);
+      addItemDialog.querySelector('input[name="name"]')?.focus();
+    });
+    closeAddItemButton?.addEventListener('click', closeAddItemDialog);
+    addItemDialog.addEventListener('click', event => {
+      if (event.target === addItemDialog) closeAddItemDialog();
+    });
+    addItemDialog.addEventListener('cancel', event => {
+      event.preventDefault();
+      closeAddItemDialog();
+    });
+    addItemDialog.addEventListener('close', () => {
+      if (addItemCloseTimer) window.clearTimeout(addItemCloseTimer);
+      addItemCloseTimer = undefined;
+      addItemDialog.classList.remove('is-closing');
+      document.body.appendChild(fixedCursor);
+      openAddItemButton.focus();
     });
   }
 
@@ -186,6 +382,7 @@
         <form method="post" action="/${mode}" class="auth-card">
           ${switchingToRegister ? '<label>Full name<input name="name" autocomplete="name" placeholder="Full name" required></label>' : ''}
           <label>CSPC email<input type="email" name="email" autocomplete="email" placeholder="CSPC email" required pattern="[^@\\s]+@my\\.cspc\\.edu\\.ph"></label>
+          ${switchingToRegister ? `<label>College / campus<div class="department-select" data-department-select data-required-selection><input type="hidden" name="department" value="" data-department-value><button class="department-select-trigger" type="button" data-department-trigger role="combobox" aria-label="Select your college or campus" aria-haspopup="listbox" aria-expanded="false" aria-controls="department-options" aria-required="true"><span data-department-label>Select your college / campus</span><span class="department-select-chevron" aria-hidden="true"></span></button><div class="department-select-menu" id="department-options" data-department-options role="listbox" aria-label="Departments" hidden>${departmentOptions.map(name => `<button type="button" class="department-option" data-department-option data-value="${name}" role="option" aria-selected="false">${name}</button>`).join('')}</div><span class="department-error" data-department-error hidden>Please choose a department.</span></div></label>` : ''}
           <label>Password<input type="password" name="password" autocomplete="${switchingToRegister ? 'new-password' : 'current-password'}" placeholder="Password" required minlength="8"></label>
           ${switchingToRegister ? '' : '<label class="remember-option"><input type="checkbox" name="remember"> <span>Remember me</span></label>'}
           <button>${switchingToRegister ? 'Create account' : 'Sign in'}</button>

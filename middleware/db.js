@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'borrower' CHECK (role IN ('borrower','admin'))
+  role TEXT NOT NULL DEFAULT 'borrower' CHECK (role IN ('borrower','admin')),
+  department TEXT NOT NULL DEFAULT 'College of Computer Studies'
 );
 CREATE TABLE IF NOT EXISTS equipment (
   id INTEGER PRIMARY KEY,
@@ -48,6 +49,13 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS chat_messages_borrower_id_id_idx ON chat_messages (borrower_id, id);
 CREATE INDEX IF NOT EXISTS chat_messages_unread_idx ON chat_messages (borrower_id, sender_role, read_at);`);
 
+// Add department selection to existing accounts; legacy users are placed in College of Computer Studies.
+const userColumns = db.pragma('table_info(users)');
+if (!userColumns.some(column => column.name === 'department')) {
+  db.exec("ALTER TABLE users ADD COLUMN department TEXT NOT NULL DEFAULT 'College of Computer Studies'");
+}
+db.exec("UPDATE users SET department = 'College of Computer Studies' WHERE department IS NULL OR trim(department) = ''");
+
 // Add item photos to existing installations without rebuilding or losing inventory data.
 const equipmentColumns = db.pragma('table_info(equipment)');
 if (!equipmentColumns.some(column => column.name === 'image_url')) {
@@ -80,6 +88,9 @@ const removeLegacyDemoData = db.transaction(() => {
   }
 });
 removeLegacyDemoData();
+
+// Rename the built-in administrator profile to the current CSPC brand.
+db.prepare("UPDATE users SET name = 'CSPC Equipment Administrator' WHERE role = 'admin' AND name = 'CCS Equipment Administrator'").run();
 
 // Optional first-admin bootstrap. This creates a real password account only when explicitly configured.
 const adminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
