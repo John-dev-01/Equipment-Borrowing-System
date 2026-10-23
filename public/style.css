@@ -181,6 +181,16 @@ table button.link:focus-visible {
 .auth-card label { margin-bottom: 24px; }
 .auth-card input { margin-top: 8px; padding: 13px 0; background: transparent; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; font-size: 14px; }
 .auth-card input:focus { border-bottom-color: var(--ink); }
+.auth-card input:focus,
+.auth-card input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}
+.auth-card input:focus-visible {
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+}
 .auth-card button { width: 100%; margin-top: 10px; padding: 13px 16px; }
 .field-note { color: var(--muted); font-size: 11px; }
 .auth-switch { margin-top: 23px; color: var(--muted); font-size: 11px; }
@@ -1000,7 +1010,7 @@ button:hover,
 .password-toggle [data-icon-hide] { display: none; }
 .password-toggle[aria-pressed="true"] [data-icon-show] { display: none; }
 .password-toggle[aria-pressed="true"] [data-icon-hide] { display: block; }
-.password-toggle {
+.auth-card .password-toggle {
   position: relative;
   flex: 0 0 28px;
   display: grid;
@@ -1015,7 +1025,7 @@ button:hover,
   font-size: 13px;
   line-height: 1;
   align-self: center;
-  transform: translateY(1px);
+  transform: none;
 }
 .password-toggle,
 .password-toggle:hover,
