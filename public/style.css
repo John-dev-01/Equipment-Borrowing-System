@@ -590,6 +590,17 @@ button:hover,
   box-shadow: none;
 }
 
+/* Keep sidebar filter submit labels white and softly glowing on the dark button in light mode. */
+:root[data-theme="light"] .sidebar-filter-form > button:hover,
+:root[data-theme="light"] .sidebar-filter-form > button:focus-visible {
+  color: #ffffff;
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  text-shadow: 0 0 5px rgba(255, 255, 255, .8), 0 0 12px rgba(255, 255, 255, .5);
+  box-shadow: 0 0 9px rgba(255, 255, 255, .42), 0 0 20px rgba(255, 255, 255, .22);
+  filter: none;
+}
+
 
 /* Animated split-screen authentication layout inspired by the supplied reference. */
 .auth-body .guest main {
