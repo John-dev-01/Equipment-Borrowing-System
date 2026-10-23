@@ -9,6 +9,17 @@ const CSPC_DOMAIN = '@my.cspc.edu.ph';
 const isCspcEmail = email => typeof email === 'string' && /^[^\s@]+@my\.cspc\.edu\.ph$/i.test(email.trim());
 const normalizeEmail = email => String(email || '').trim().toLowerCase();
 
+const passwordField = (label, id, name, autocomplete) => `<div class="auth-password-group">
+  <label for="${id}">${label}</label>
+  <div class="auth-password-field">
+    <input id="${id}" type="password" name="${name}" autocomplete="${autocomplete}" placeholder="${label}" required${name === 'password' && autocomplete === 'new-password' ? ' minlength="8"' : ''}>
+    <button class="password-toggle" type="button" data-password-toggle data-field-label="${label.toLowerCase()}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false" title="Show ${label.toLowerCase()}">
+      <svg data-icon-show viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg data-icon-hide viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a15 15 0 0 1-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/></svg>
+    </button>
+  </div>
+</div>`;
+
 const form = (kind, error = '', v = {}) => `<div class="auth-shell ${kind === 'login' ? 'login-mode' : 'register-mode'}" data-auth-mode="${kind}">
   <section class="auth-form-panel">
     <div class="auth-form-area">
@@ -17,10 +28,11 @@ const form = (kind, error = '', v = {}) => `<div class="auth-shell ${kind === 'l
       <p class="auth-form-copy">${kind === 'login' ? 'Access the equipment library and keep track of your requests.' : 'Join the equipment desk with your CSPC email address.'}</p>
       ${error ? `<p class="flash error">${esc(error)}</p>` : ''}
       <form method="post" class="auth-card">
-        ${kind === 'register' ? `<label>Full name<input name="name" autocomplete="name" placeholder="Full name" required value="${esc(v.name)}"></label>` : ''}
+        ${kind === 'register' ? `<label>Full name<input name="name" autocomplete="name" placeholder="Name" required value="${esc(v.name)}"></label>` : ''}
         <label>CSPC email<input type="email" name="email" autocomplete="email" placeholder="CSPC email" required value="${esc(v.email)}"${kind === 'register' ? ' pattern="[^@\\s]+@my\\.cspc\\.edu\\.ph" title="Use your @my.cspc.edu.ph email address"' : ''}></label>
         ${kind === 'register' ? `<label>College / campus<div class="department-select${v.department ? ' has-value' : ''}" data-department-select data-required-selection><input type="hidden" name="department" value="${esc(v.department || '')}" data-department-value><button class="department-select-trigger" type="button" data-department-trigger role="combobox" aria-label="Select your college or campus" aria-haspopup="listbox" aria-expanded="false" aria-controls="department-options" aria-required="true"><span data-department-label>${esc(v.department || 'Select your college / campus')}</span><span class="department-select-chevron" aria-hidden="true"></span></button><div class="department-select-menu" id="department-options" data-department-options role="listbox" aria-label="Departments" hidden>${departments.map(name => `<button type="button" class="department-option" data-department-option data-value="${esc(name)}" role="option" aria-selected="${v.department === name}">${esc(name)}</button>`).join('')}</div><span class="department-error" data-department-error hidden>Please choose a department.</span></div></label>` : ''}
-        <label>Password<input type="password" name="password" autocomplete="${kind === 'login' ? 'current-password' : 'new-password'}" placeholder="Password" required minlength="8"></label>
+        ${passwordField('Password', 'auth-password', 'password', kind === 'login' ? 'current-password' : 'new-password')}
+        ${kind === 'register' ? passwordField('Confirm password', 'auth-password-confirm', 'password_confirm', 'new-password') : ''}
         ${kind === 'login' ? '<label class="remember-option"><input type="checkbox" name="remember"> <span>Remember me</span></label>' : ''}
         ${kind === 'register' ? '<p class="field-note">Use at least 8 characters. New accounts start with the borrower role.</p>' : ''}
         <button>${kind === 'login' ? 'Sign in' : 'Create account'}</button>
@@ -74,12 +86,14 @@ router.post('/register', (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || '');
+  const passwordConfirm = String(req.body.password_confirm || '');
   const department = String(req.body.department || '').trim();
   const fail = message => res.status(400).send(req.app.locals.page(req, 'Create account', form('register', message, { name, email, department })));
   if (name.length < 2 || name.length > 120) return fail('Enter your full name.');
   if (!isCspcEmail(email)) return fail(`Use your ${CSPC_DOMAIN} email address.`);
   if (!departments.includes(department)) return fail('Choose your college or campus.');
   if (password.length < 8) return fail('Password must be at least 8 characters.');
+  if (password !== passwordConfirm) return fail('Passwords do not match. Please enter the same password in both fields.');
   if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return fail('That CSPC email is already registered.');
   db.prepare('INSERT INTO users (name,email,password_hash,role,department) VALUES (?,?,?,?,?)').run(name, email, bcrypt.hashSync(password, 12), 'borrower', department);
   res.redirect('/login');

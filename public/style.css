@@ -969,18 +969,44 @@ button:hover,
 }
 .auth-password-field {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--line);
 }
+.auth-password-field:focus-within { border-bottom-color: var(--ink); }
+.auth-password-group { margin-bottom: 18px; }
+.auth-password-group > label { margin: 0; font-size: 0; }
 .auth-password-field input {
-  padding-right: 30px;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 13px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
+.password-toggle svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.password-toggle [data-icon-hide] { display: none; }
+.password-toggle[aria-pressed="true"] [data-icon-show] { display: none; }
+.password-toggle[aria-pressed="true"] [data-icon-hide] { display: block; }
 .password-toggle {
-  position: absolute;
-  right: 0;
-  bottom: 7px;
+  position: relative;
+  flex: 0 0 28px;
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  margin: 0 0 0 8px;
   place-items: center;
   padding: 0;
   color: #a7a7a7;
@@ -988,11 +1014,46 @@ button:hover,
   border: 0;
   font-size: 13px;
   line-height: 1;
+  align-self: center;
+  transform: translateY(1px);
 }
-.password-toggle:hover {
+.password-toggle,
+.password-toggle:hover,
+.password-toggle:focus-visible,
+:root[data-theme="light"] .auth-card .password-toggle:hover,
+:root[data-theme="light"] .auth-card .password-toggle:focus-visible {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none;
+}
+.auth-card .password-toggle::before,
+.auth-card .password-toggle::after,
+.auth-card .password-toggle:hover::before,
+.auth-card .password-toggle:hover::after,
+.auth-card .password-toggle:focus-visible::before,
+.auth-card .password-toggle:focus-visible::after {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  border: 0 !important;
+  content: none !important;
+}
+.password-toggle:hover,
+.password-toggle:focus-visible {
   color: #ffffff;
-  box-shadow: none;
-  text-shadow: 0 0 7px rgba(255, 255, 255, .65);
+}
+.password-toggle:hover svg,
+.password-toggle:focus-visible svg {
+  filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 7px currentColor);
+}
+:root[data-theme="light"] .auth-card .password-toggle:hover,
+:root[data-theme="light"] .auth-card .password-toggle:focus-visible {
+  color: #1a1a1a;
+}
+:root[data-theme="light"] .auth-card .password-toggle:hover svg,
+:root[data-theme="light"] .auth-card .password-toggle:focus-visible svg {
+  filter: drop-shadow(0 0 3px rgba(26, 26, 26, .7)) drop-shadow(0 0 7px rgba(26, 26, 26, .45));
 }
 .remember-option {
   display: flex !important;
