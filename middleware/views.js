@@ -19,9 +19,9 @@ function page(req, title, body, options = {}) {
   const sectionTitle = !u ? '' : u.role === 'admin'
     ? (path === '/admin/chat' || path === '/admin/messages' ? 'Chat' : path.startsWith('/admin/equipment') || path.startsWith('/admin/categories') ? 'Manage stock' : 'Request queue')
     : (path === '/chat' || path === '/messages' ? 'Chat' : path === '/my-requests' || path.startsWith('/requests/') ? 'My requests' : 'Equipment');
-  const tabTitle = !u ? `${title} | CSPC Equipment Desk`
-    : u.role === 'admin' ? `${sectionTitle} | Admin | CSPC Equipment Desk`
-    : `${sectionTitle} | ${(u.name || 'Account').trim()} | CSPC Equipment Desk`;
+  const tabTitle = !u ? `${title} | CSPC Vault`
+    : u.role === 'admin' ? `${sectionTitle} | Admin | CSPC Vault`
+    : `${sectionTitle} | ${(u.name || 'Account').trim()} | CSPC Vault`;
   const link = (href, icon, label) => `<a href="${href}" title="${label}" aria-label="${label}"${path === href ? ' class="active" aria-current="page"' : ''}>${ICONS[icon]}<span>${label}</span></a>`;
   const flashHtml = flash ? `<p class="flash ${flash.type}">${esc(flash.msg)}</p>` : '';
   const intro = `<div id="site-intro" class="site-intro" role="status" aria-live="polite">

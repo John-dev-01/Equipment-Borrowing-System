@@ -48,7 +48,9 @@ function startSession(req, res, user, next, remember = false) {
   req.session.regenerate(err => {
     if (err) return next(err);
     req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role };
-    req.session.cookie.maxAge = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 8;
+    // No Expires/Max-Age means a browser-session cookie when Remember me is off.
+    if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
+    else req.session.cookie.expires = false;
     req.session.save(saveErr => {
       if (saveErr) return next(saveErr);
       res.redirect(user.role === 'admin' ? '/admin/requests' : '/equipment');

@@ -20,7 +20,6 @@ app.use(session({
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 8,
   },
 }));
 app.get('/', (req, res) => res.redirect(req.session.user ? '/equipment' : '/login'));
