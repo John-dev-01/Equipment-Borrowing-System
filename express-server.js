@@ -22,7 +22,12 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
   },
 }));
-app.get('/', (req, res) => res.redirect(req.session.user ? '/equipment' : '/login'));
+app.get('/', (req, res) => {
+  const user = req.session.user;
+  if (!user) return res.redirect('/login');
+  if (user.role === 'admin') return res.redirect(user.admin_scope === 'system' ? '/admin/department-admins' : '/admin/requests');
+  return res.redirect('/equipment');
+});
 app.use(require('./routes/auth'));
 app.use(require('./routes/borrower'));
 app.use(require('./routes/admin'));

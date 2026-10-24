@@ -3,14 +3,18 @@ const db = require('../middleware/db');
 const { esc, badge } = require('../middleware/views');
 const filterDropdown = require('../middleware/filter-dropdown');
 const equipmentImage = require('../middleware/equipment-images');
-const { requirePermission } = require('../middleware/auth');
+const { isSystemAdmin, requirePermission } = require('../middleware/auth');
 const router = express.Router();
 const guard = requirePermission('equipment:read');
+const systemAdminOnlyDepartmentAccounts = (req, res, next) => isSystemAdmin(req.session.user)
+  ? res.redirect('/admin/department-admins')
+  : next();
+router.use(['/equipment', '/requests', '/my-requests'], systemAdminOnlyDepartmentAccounts);
 const today = () => new Date().toISOString().slice(0, 10);
 
 router.get('/equipment', guard, (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-  const categories = db.prepare('SELECT DISTINCT category FROM equipment ORDER BY category').all()
+  const categories = db.prepare('SELECT DISTINCT category FROM equipment WHERE department = ? ORDER BY category').all(req.session.user.department)
     .map(row => row.category);
   const category = typeof req.query.category === 'string' && categories.includes(req.query.category)
     ? req.query.category
@@ -22,8 +26,8 @@ router.get('/equipment', guard, (req, res) => {
   const availability = ['available', 'unavailable'].includes(req.query.availability)
     ? req.query.availability
     : '';
-  const filters = [];
-  const params = [];
+  const filters = ['department = ?'];
+  const params = [req.session.user.department];
   if (q) {
     filters.push('(name LIKE ? OR category LIKE ?)');
     params.push(`%${q}%`, `%${q}%`);
@@ -41,9 +45,10 @@ router.get('/equipment', guard, (req, res) => {
   const rows = db.prepare(`SELECT * FROM equipment${filters.length ? ` WHERE ${filters.join(' AND ')}` : ''} ORDER BY name`)
     .all(...params);
   const loansByEquipment = new Map();
-  for (const loan of db.prepare(`SELECT equipment_id, due_date, COUNT(*) AS copies
-    FROM borrow_requests WHERE status = 'approved'
-    GROUP BY equipment_id, due_date ORDER BY due_date`).all()) {
+  for (const loan of db.prepare(`SELECT r.equipment_id, r.due_date, COUNT(*) AS copies
+    FROM borrow_requests r JOIN equipment e ON e.id = r.equipment_id
+    WHERE r.status = 'approved' AND e.department = ?
+    GROUP BY r.equipment_id, r.due_date ORDER BY r.due_date`).all(req.session.user.department)) {
     if (!loansByEquipment.has(loan.equipment_id)) loansByEquipment.set(loan.equipment_id, []);
     loansByEquipment.get(loan.equipment_id).push(loan);
   }
@@ -83,14 +88,14 @@ ${error ? `<p class="flash error">${esc(error)}</p>` : ''}
 <button>Send request</button></form>`;
 
 router.get('/equipment/:id/borrow', guard, (req, res) => {
-  const e = db.prepare('SELECT * FROM equipment WHERE id = ?').get(req.params.id);
+  const e = db.prepare('SELECT * FROM equipment WHERE id = ? AND department = ?').get(req.params.id, req.session.user.department);
   if (!e) return res.status(404).send(req.app.locals.page(req, 'Not found', '<h1>Item not found</h1>'));
   res.send(req.app.locals.page(req, 'Request', borrowForm(e)));
 });
 
 router.post('/requests', guard, (req, res) => {
   const { equipment_id, borrow_date = '', due_date = '', purpose = '' } = req.body;
-  const e = db.prepare('SELECT * FROM equipment WHERE id = ?').get(equipment_id);
+  const e = db.prepare('SELECT * FROM equipment WHERE id = ? AND department = ?').get(equipment_id, req.session.user.department);
   if (!e) return res.status(404).send(req.app.locals.page(req, 'Not found', '<h1>Item not found</h1>'));
   const fail = m => res.status(400).send(req.app.locals.page(req, 'Request', borrowForm(e, m, req.body)));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(borrow_date) || !/^\d{4}-\d{2}-\d{2}$/.test(due_date)) return fail('Enter valid dates.');

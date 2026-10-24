@@ -181,6 +181,16 @@ table button.link:focus-visible {
 .auth-card label { margin-bottom: 24px; }
 .auth-card input { margin-top: 8px; padding: 13px 0; background: transparent; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; font-size: 14px; }
 .auth-card input:focus { border-bottom-color: var(--ink); }
+.auth-card input:focus,
+.auth-card input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}
+.auth-card input:focus-visible {
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+}
 .auth-card button { width: 100%; margin-top: 10px; padding: 13px 16px; }
 .field-note { color: var(--muted); font-size: 11px; }
 .auth-switch { margin-top: 23px; color: var(--muted); font-size: 11px; }
@@ -969,18 +979,44 @@ button:hover,
 }
 .auth-password-field {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--line);
 }
+.auth-password-field:focus-within { border-bottom-color: var(--ink); }
+.auth-password-group { margin-bottom: 18px; }
+.auth-password-group > label { margin: 0; font-size: 0; }
 .auth-password-field input {
-  padding-right: 30px;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 13px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
-.password-toggle {
-  position: absolute;
-  right: 0;
-  bottom: 7px;
+.password-toggle svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.password-toggle [data-icon-hide] { display: none; }
+.password-toggle[aria-pressed="true"] [data-icon-show] { display: none; }
+.password-toggle[aria-pressed="true"] [data-icon-hide] { display: block; }
+.auth-card .password-toggle {
+  position: relative;
+  flex: 0 0 28px;
   display: grid;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  margin: 0 0 0 8px;
   place-items: center;
   padding: 0;
   color: #a7a7a7;
@@ -988,11 +1024,46 @@ button:hover,
   border: 0;
   font-size: 13px;
   line-height: 1;
+  align-self: center;
+  transform: none;
 }
-.password-toggle:hover {
+.password-toggle,
+.password-toggle:hover,
+.password-toggle:focus-visible,
+:root[data-theme="light"] .auth-card .password-toggle:hover,
+:root[data-theme="light"] .auth-card .password-toggle:focus-visible {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none;
+}
+.auth-card .password-toggle::before,
+.auth-card .password-toggle::after,
+.auth-card .password-toggle:hover::before,
+.auth-card .password-toggle:hover::after,
+.auth-card .password-toggle:focus-visible::before,
+.auth-card .password-toggle:focus-visible::after {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  border: 0 !important;
+  content: none !important;
+}
+.password-toggle:hover,
+.password-toggle:focus-visible {
   color: #ffffff;
-  box-shadow: none;
-  text-shadow: 0 0 7px rgba(255, 255, 255, .65);
+}
+.password-toggle:hover svg,
+.password-toggle:focus-visible svg {
+  filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 7px currentColor);
+}
+:root[data-theme="light"] .auth-card .password-toggle:hover,
+:root[data-theme="light"] .auth-card .password-toggle:focus-visible {
+  color: #1a1a1a;
+}
+:root[data-theme="light"] .auth-card .password-toggle:hover svg,
+:root[data-theme="light"] .auth-card .password-toggle:focus-visible svg {
+  filter: drop-shadow(0 0 3px rgba(26, 26, 26, .7)) drop-shadow(0 0 7px rgba(26, 26, 26, .45));
 }
 .remember-option {
   display: flex !important;
@@ -1948,3 +2019,68 @@ html[data-sidebar="hidden"] .admin-equipment-grid {
 :root[data-theme="light"] *::after {
   cursor: none !important;
 }
+
+
+/* Admin profile password-change action and modal. */
+.account-popover > .account-menu-action {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.account-popover > .account-menu-action:hover,
+.account-popover > .account-menu-action:focus-visible { background: var(--surface-2); border-color: var(--line-strong); box-shadow: none; }
+.password-change-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(460px, calc(100vw - 32px));
+  height: fit-content;
+  max-width: none;
+  max-height: min(88vh, 760px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .58);
+}
+.password-change-dialog[open] { display: block; animation: password-dialog-fade-in .18s ease both; }
+.password-change-dialog::backdrop { background: rgba(0, 0, 0, .72); backdrop-filter: blur(3px); }
+.password-dialog-content { display: grid; gap: 14px; padding: clamp(20px, 4vw, 30px); animation: password-dialog-content-in .18s ease both; }
+.password-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 4px; }
+.password-dialog-heading h2 { margin: 6px 0 0; color: var(--ink); font-size: 22px; font-weight: 500; }
+.password-dialog-close { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; margin: 0; padding: 0; color: var(--muted); background: transparent; border: 1px solid var(--line); font: 24px/1 var(--sans); }
+.password-dialog-close:hover,
+.password-dialog-close:focus-visible { color: var(--ink); background: var(--surface-2); border-color: var(--line-strong); box-shadow: none; }
+.password-dialog-content > label { display: grid; gap: 6px; margin: 0; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.password-dialog-content > label input { width: 100%; min-width: 0; margin: 0; padding: 11px 12px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); font: 13px var(--sans); letter-spacing: 0; text-transform: none; }
+.password-dialog-content > label input:focus { border-color: var(--line-strong); }
+.password-dialog-content .field-note { margin: 0; }
+.password-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 3px; }
+.password-dialog-actions button { width: auto; margin: 0; }
+.password-dialog-actions .password-dialog-cancel { color: var(--ink); background: transparent; border: 1px solid var(--line); }
+.password-dialog-actions .password-dialog-cancel:hover { background: var(--surface-2); box-shadow: none; }
+@keyframes password-dialog-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes password-dialog-content-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
+@media (max-width: 480px) {
+  .password-dialog-actions { flex-direction: column-reverse; }
+  .password-dialog-actions button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .password-change-dialog[open], .password-change-dialog::backdrop { animation: none !important; }
+}
+
+
+/* Keep the app's glowing cursor in the dialog top layer above the password form. */
+.password-change-dialog { overflow: visible; isolation: isolate; }
+.password-dialog-content { max-height: min(88vh, 760px); overflow: auto; }
+.password-change-dialog > #custom-cursor {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+}
+.password-change-dialog > #custom-cursor.is-visible { opacity: 1 !important; }

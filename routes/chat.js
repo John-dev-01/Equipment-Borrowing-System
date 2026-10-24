@@ -1,5 +1,7 @@
 const express = require('express');
 const db = require('../middleware/db');
+const { isSystemAdmin } = require('../middleware/auth');
+const { esc } = require('../middleware/views');
 const departments = require('../middleware/departments');
 const router = express.Router();
 
@@ -24,6 +26,10 @@ const conversations = db.prepare(`SELECT u.id AS borrower_id, u.name, u.email, u
   FROM users u WHERE u.role = 'borrower'
   ORDER BY CASE WHEN last_at IS NULL THEN 1 ELSE 0 END, last_at DESC, u.name COLLATE NOCASE`);
 
+function canAdminAccess(user, borrower) {
+  return Boolean(borrower && (isSystemAdmin(user) || borrower.department === user.department));
+}
+
 function sendJson(res, status, data) {
   return res.set('Cache-Control', 'no-store').status(status).json(data);
 }
@@ -32,6 +38,7 @@ function requireApiRole(role) {
   return (req, res, next) => {
     if (!req.session.user) return sendJson(res, 401, { error: 'Your session has ended. Sign in again.' });
     if (req.session.user.role !== role) return sendJson(res, 403, { error: 'You do not have access to this conversation.' });
+    if (role === 'admin' && isSystemAdmin(req.session.user)) return sendJson(res, 403, { error: 'System-admin access is limited to department accounts.' });
     const fetchSite = req.get('sec-fetch-site');
     if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
       return sendJson(res, 403, { error: 'Cross-origin requests are not allowed.' });
@@ -46,18 +53,19 @@ function requireApiRole(role) {
 const borrowerApi = requireApiRole('borrower');
 const adminApi = requireApiRole('admin');
 
-function chatPage(role) {
+function chatPage(role, user) {
   const isAdmin = role === 'admin';
+  const showDepartmentFilters = isAdmin && isSystemAdmin(user);
   const intro = isAdmin
     ? 'Private conversations with borrowers.'
     : 'A private conversation between you and the admin team.';
   const list = isAdmin ? `<aside class="chat-panel chat-inbox" aria-label="Borrower conversations">
     <header class="chat-inbox-header"><div><h2>Borrowers</h2><p data-chat-filter-summary>All departments</p></div>
-      <button class="chat-filter-toggle" type="button" data-chat-filter-toggle aria-expanded="false" aria-controls="chat-department-filters">Filter</button></header>
-    <section class="chat-filter-panel" id="chat-department-filters" data-chat-filter-panel aria-label="Filter borrowers by department" hidden>
+      ${showDepartmentFilters ? '<button class="chat-filter-toggle" type="button" data-chat-filter-toggle aria-expanded="false" aria-controls="chat-department-filters">Filter</button>' : ''}</header>
+    ${showDepartmentFilters ? `<section class="chat-filter-panel" id="chat-department-filters" data-chat-filter-panel aria-label="Filter borrowers by department" hidden>
       <div class="chat-filter-panel-heading"><strong>Departments</strong><button type="button" class="chat-filter-clear" data-chat-filter-clear>Clear</button></div>
-      <div class="chat-filter-options">${departments.map(name => `<label><input type="checkbox" data-department-filter value="${name.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"><span>${name.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span></label>`).join('')}</div>
-    </section>
+      <div class="chat-filter-options">${departments.map(name => `<label><input type="checkbox" data-department-filter value="${esc(name)}"><span>${esc(name)}</span></label>`).join('')}</div>
+    </section>` : ''}
     <div class="chat-conversation-list" data-chat-conversations><p class="chat-empty">Loading conversations…</p></div>
   </aside>` : '';
   const empty = isAdmin
@@ -89,11 +97,12 @@ function chatPage(role) {
 function renderPage(req, res, role) {
   const user = req.session.user;
   if (!user) return res.redirect('/login');
+  if (role === 'admin' && isSystemAdmin(user)) return res.redirect('/admin/department-admins');
   if (role === 'admin' && user.role !== 'admin') {
     return res.status(403).send(req.app.locals.page(req, 'Forbidden', '<h1>Access denied</h1><p>This conversation inbox is for administrators.</p>'));
   }
-  if (role === 'borrower' && user.role === 'admin') return res.redirect('/admin/chat');
-  return res.send(req.app.locals.page(req, 'Chat', chatPage(role)));
+  if (role === 'borrower' && user.role === 'admin') return res.redirect(isSystemAdmin(user) ? '/admin/department-admins' : '/admin/chat');
+  return res.send(req.app.locals.page(req, 'Chat', chatPage(role, user)));
 }
 
 router.get('/chat', (req, res) => renderPage(req, res, 'borrower'));
@@ -118,14 +127,22 @@ router.post('/api/chat/messages', borrowerApi, (req, res) => {
 });
 
 router.get('/api/admin/chat/conversations', adminApi, (req, res) => {
-  sendJson(res, 200, { conversations: conversations.all() });
+  const rows = isSystemAdmin(req.session.user)
+    ? conversations.all()
+    : db.prepare(`SELECT u.id AS borrower_id, u.name, u.email, u.department,
+      (SELECT m.body FROM chat_messages m WHERE m.borrower_id = u.id ORDER BY m.id DESC LIMIT 1) AS last_message,
+      (SELECT m.created_at FROM chat_messages m WHERE m.borrower_id = u.id ORDER BY m.id DESC LIMIT 1) AS last_at,
+      (SELECT COUNT(*) FROM chat_messages m WHERE m.borrower_id = u.id AND m.sender_role='borrower' AND m.read_at IS NULL) AS unread_count
+      FROM users u WHERE u.role='borrower' AND u.department=?
+      ORDER BY CASE WHEN last_at IS NULL THEN 1 ELSE 0 END, last_at DESC, u.name COLLATE NOCASE`).all(req.session.user.department);
+  sendJson(res, 200, { conversations: rows });
 });
 
 router.get('/api/admin/chat/conversations/:borrowerId/messages', adminApi, (req, res) => {
   const borrowerId = Number(req.params.borrowerId);
   if (!Number.isSafeInteger(borrowerId) || borrowerId < 1) return sendJson(res, 400, { error: 'Invalid borrower.' });
   const borrower = borrowerById.get(borrowerId);
-  if (!borrower) return sendJson(res, 404, { error: 'Borrower not found.' });
+  if (!canAdminAccess(req.session.user, borrower)) return sendJson(res, 404, { error: 'Borrower not found.' });
   markBorrowerMessagesRead.run(borrowerId);
   sendJson(res, 200, { borrower, messages: messagesFor.all(borrowerId).reverse() });
 });
@@ -133,7 +150,7 @@ router.get('/api/admin/chat/conversations/:borrowerId/messages', adminApi, (req,
 router.post('/api/admin/chat/conversations/:borrowerId/messages', adminApi, (req, res) => {
   const borrowerId = Number(req.params.borrowerId);
   if (!Number.isSafeInteger(borrowerId) || borrowerId < 1) return sendJson(res, 400, { error: 'Invalid borrower.' });
-  if (!borrowerById.get(borrowerId)) return sendJson(res, 404, { error: 'Borrower not found.' });
+  if (!canAdminAccess(req.session.user, borrowerById.get(borrowerId))) return sendJson(res, 404, { error: 'Borrower not found.' });
   const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
   if (!body || body.length > MESSAGE_LIMIT) {
     return sendJson(res, 400, { error: `Enter a message of 1 to ${MESSAGE_LIMIT.toLocaleString()} characters.` });

@@ -2,16 +2,20 @@
   const root = document.documentElement;
   let theme = root.dataset.theme === 'light' ? 'light' : 'dark';
   const themeStorageKey = root.dataset.themeStorageKey || 'cspc-theme:guest';
-  const departmentOptions = [
-    'College of Engineering and Architecture',
-    'College of Computer Studies',
-    'College of Health Sciences',
-    'College of Arts and Sciences',
-    'College of Tourism, Hospitality, and Business Management',
-    'College of Technological and Developmental Education',
-    'Buhi Campus',
-    'Graduate School / Advanced Programs',
-  ];
+  const departmentOptions = (() => {
+    try { return JSON.parse(document.querySelector('.auth-shell')?.dataset.departments || '[]'); }
+    catch { return []; }
+  })();
+  const passwordFieldMarkup = (label, id, name, autocomplete) => `<div class="auth-password-group">
+    <label for="${id}">${label}</label>
+    <div class="auth-password-field">
+      <input id="${id}" type="password" name="${name}" autocomplete="${autocomplete}" placeholder="${label}" required${name === 'password' && autocomplete === 'new-password' ? ' minlength="8"' : ''}>
+      <button class="password-toggle" type="button" data-password-toggle data-field-label="${label.toLowerCase()}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false" title="Show ${label.toLowerCase()}">
+        <svg data-icon-show viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg data-icon-hide viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a15 15 0 0 1-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8"/></svg>
+      </button>
+    </div>
+  </div>`;
 
   const fixedCursor = document.createElement('span');
   fixedCursor.id = 'custom-cursor';
@@ -277,6 +281,38 @@
     });
   }
 
+  const passwordDialog = document.querySelector('[data-password-dialog]');
+  const openPasswordDialogButton = document.querySelector('[data-open-password-dialog]');
+  const closePasswordDialogButtons = passwordDialog?.querySelectorAll('[data-close-password-dialog]');
+  if (passwordDialog && openPasswordDialogButton) {
+    const closePasswordDialog = () => { if (passwordDialog.open) passwordDialog.close(); };
+    openPasswordDialogButton.addEventListener('click', () => {
+      closeAccountMenu();
+      if (!passwordDialog.open) passwordDialog.showModal();
+      passwordDialog.appendChild(fixedCursor);
+      passwordDialog.querySelector('input[name="current_password"]')?.focus();
+    });
+    closePasswordDialogButtons?.forEach(button => button.addEventListener('click', closePasswordDialog));
+    passwordDialog.addEventListener('click', event => {
+      if (event.target === passwordDialog) closePasswordDialog();
+    });
+    passwordDialog.addEventListener('close', () => {
+      document.body.appendChild(fixedCursor);
+      queueContrastCheck();
+      accountToggle?.focus();
+    });
+    const form = passwordDialog.querySelector('form');
+    const newPassword = form?.querySelector('input[name="new_password"]');
+    const confirmPassword = form?.querySelector('input[name="confirm_password"]');
+    const validatePasswordMatch = () => {
+      if (!confirmPassword) return;
+      confirmPassword.setCustomValidity(confirmPassword.value && confirmPassword.value !== newPassword?.value ? 'New passwords do not match.' : '');
+    };
+    newPassword?.addEventListener('input', validatePasswordMatch);
+    confirmPassword?.addEventListener('input', validatePasswordMatch);
+    form?.addEventListener('submit', validatePasswordMatch);
+  }
+
   const addItemDialog = document.querySelector('[data-add-item-dialog]');
   const openAddItemButton = document.querySelector('[data-open-add-item]');
   const closeAddItemButton = addItemDialog?.querySelector('[data-close-add-item]');
@@ -334,6 +370,20 @@
 
   // Let the split auth panels finish their side-switch animation before routing.
   document.addEventListener('click', event => {
+    const toggle = event.target.closest('[data-password-toggle]');
+    if (!toggle) return;
+    const input = toggle.closest('.auth-password-field')?.querySelector('input');
+    if (!input) return;
+    const visible = input.type === 'password';
+    const label = toggle.dataset.fieldLabel || 'password';
+    input.type = visible ? 'text' : 'password';
+    toggle.setAttribute('aria-pressed', String(visible));
+    toggle.setAttribute('aria-label', `${visible ? 'Hide' : 'Show'} ${label}`);
+    toggle.setAttribute('title', `${visible ? 'Hide' : 'Show'} ${label}`);
+    input.focus({ preventScroll: true });
+  });
+
+  document.addEventListener('click', event => {
     const link = event.target.closest('[data-auth-switch]');
     if (!link) return;
     const shell = link.closest('[data-auth-mode]');
@@ -380,10 +430,11 @@
         <h1>${switchingToRegister ? 'Create account' : 'Sign in'}</h1>
         <p class="auth-form-copy">${switchingToRegister ? 'Join the equipment desk with your CSPC email address.' : 'Access the equipment library and keep track of your requests.'}</p>
         <form method="post" action="/${mode}" class="auth-card">
-          ${switchingToRegister ? '<label>Full name<input name="name" autocomplete="name" placeholder="Full name" required></label>' : ''}
+          ${switchingToRegister ? '<label>Full name<input name="name" autocomplete="name" placeholder="Name" required></label>' : ''}
           <label>CSPC email<input type="email" name="email" autocomplete="email" placeholder="CSPC email" required pattern="[^@\\s]+@my\\.cspc\\.edu\\.ph"></label>
           ${switchingToRegister ? `<label>College / campus<div class="department-select" data-department-select data-required-selection><input type="hidden" name="department" value="" data-department-value><button class="department-select-trigger" type="button" data-department-trigger role="combobox" aria-label="Select your college or campus" aria-haspopup="listbox" aria-expanded="false" aria-controls="department-options" aria-required="true"><span data-department-label>Select your college / campus</span><span class="department-select-chevron" aria-hidden="true"></span></button><div class="department-select-menu" id="department-options" data-department-options role="listbox" aria-label="Departments" hidden>${departmentOptions.map(name => `<button type="button" class="department-option" data-department-option data-value="${name}" role="option" aria-selected="false">${name}</button>`).join('')}</div><span class="department-error" data-department-error hidden>Please choose a department.</span></div></label>` : ''}
-          <label>Password<input type="password" name="password" autocomplete="${switchingToRegister ? 'new-password' : 'current-password'}" placeholder="Password" required minlength="8"></label>
+          ${passwordFieldMarkup('Password', 'auth-password', 'password', switchingToRegister ? 'new-password' : 'current-password')}
+          ${switchingToRegister ? passwordFieldMarkup('Confirm password', 'auth-password-confirm', 'password_confirm', 'new-password') : ''}
           ${switchingToRegister ? '' : '<label class="remember-option"><input type="checkbox" name="remember"> <span>Remember me</span></label>'}
           <button>${switchingToRegister ? 'Create account' : 'Sign in'}</button>
         </form>

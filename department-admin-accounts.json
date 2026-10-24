@@ -1,0 +1,50 @@
+[
+  {
+    "department": "College of Engineering and Architecture",
+    "name": "Engineering & Architecture Department Admin",
+    "email": "cea.admin@my.cspc.edu.ph",
+    "password": "cea123123"
+  },
+  {
+    "department": "College of Computer Studies",
+    "name": "Computer Studies Department Admin",
+    "email": "ccs.admin@my.cspc.edu.ph",
+    "password": "ccs123123"
+  },
+  {
+    "department": "College of Health Sciences",
+    "name": "Health Sciences Department Admin",
+    "email": "chs.admin@my.cspc.edu.ph",
+    "password": "chs123123"
+  },
+  {
+    "department": "College of Arts and Sciences",
+    "name": "Arts and Sciences Department Admin",
+    "email": "cas.admin@my.cspc.edu.ph",
+    "password": "cas123123"
+  },
+  {
+    "department": "College of Tourism, Hospitality, and Business Management",
+    "name": "Tourism, Hospitality & Business Department Admin",
+    "email": "thbm.admin@my.cspc.edu.ph",
+    "password": "thbm123123"
+  },
+  {
+    "department": "College of Technological and Developmental Education",
+    "name": "Technological & Developmental Education Department Admin",
+    "email": "ctde.admin@my.cspc.edu.ph",
+    "password": "ctde123123"
+  },
+  {
+    "department": "Buhi Campus",
+    "name": "Buhi Campus Department Admin",
+    "email": "buhi.admin@my.cspc.edu.ph",
+    "password": "buhi123123"
+  },
+  {
+    "department": "Graduate School / Advanced Programs",
+    "name": "Graduate School Department Admin",
+    "email": "gs.admin@my.cspc.edu.ph",
+    "password": "gs123123"
+  }
+]
