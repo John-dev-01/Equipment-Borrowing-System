@@ -197,6 +197,9 @@ table button.link:focus-visible {
 .auth-switch a { color: var(--ink); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible { outline: none; }
 @media (max-width: 900px) {
   .sidebar { width: 190px; flex-basis: 190px; }
   .topbar-context { flex-basis: 145px; }
